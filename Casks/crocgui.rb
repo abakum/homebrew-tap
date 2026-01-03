@@ -14,6 +14,8 @@ cask "crocgui" do
   homepage "https://github.com/abakum/crocgui"
 
   depends_on macos: ">= :big_sur"
+  depends_on arch: :arm64
+  depends_on arch: :intel
 
   app "crocgui-#{arch}.app"
 
