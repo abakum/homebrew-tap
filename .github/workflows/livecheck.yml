@@ -1,4 +1,3 @@
-# shellcheck disable=SC2034,SC2086,SC2155,SC2129
 name: Auto-update Casks
 
 on:
@@ -26,39 +25,42 @@ jobs:
       - name: Check for cask updates
         id: check_update
         run: |
-          echo "🔍 Checking for updates to crocgui cask..."
+          echo "Checking for updates to crocgui cask..."
           
           # Get livecheck data in JSON format
           LIVECHECK_JSON="$(brew livecheck --cask --json abakum/tap/crocgui 2>/dev/null || echo '[]')"
           
           # Parse JSON to get version information
-          CURRENT_VERSION="$(echo "$LIVECHECK_JSON" | jq -r '.[0].version.current // empty')"
-          LATEST_VERSION="$(echo "$LIVECHECK_JSON" | jq -r '.[0].version.latest // empty')"
-          STATUS="$(echo "$LIVECHECK_JSON" | jq -r '.[0].version.status // empty')"
+          CURRENT_VERSION="$(echo "${LIVECHECK_JSON}" | jq -r '.[0].version.current // empty')"
+          LATEST_VERSION="$(echo "${LIVECHECK_JSON}" | jq -r '.[0].version.latest // empty')"
+          STATUS="$(echo "${LIVECHECK_JSON}" | jq -r '.[0].version.status // empty')"
           
-          echo "Current version: $CURRENT_VERSION"
-          echo "Latest version:  $LATEST_VERSION"
-          echo "Status:          $STATUS"
+          echo "Current version: ${CURRENT_VERSION}"
+          echo "Latest version:  ${LATEST_VERSION}"
+          echo "Status:          ${STATUS}"
           
           # Determine if update is needed
-          if [[ "$STATUS" == "outdated" ]] && [[ -n "$CURRENT_VERSION" ]] && [[ -n "$LATEST_VERSION" ]]; then
-            echo "🔄 Update available: $CURRENT_VERSION → $LATEST_VERSION"
-            echo "UPDATE=true" >> "$GITHUB_OUTPUT"
-            echo "NEW_VERSION=$LATEST_VERSION" >> "$GITHUB_OUTPUT"
-            echo "OLD_VERSION=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
+          if [[ "${STATUS}" == "outdated" ]] && [[ -n "${CURRENT_VERSION}" ]] && [[ -n "${LATEST_VERSION}" ]]; then
+            echo "Update available: ${CURRENT_VERSION} → ${LATEST_VERSION}"
+            {
+              echo "UPDATE=true"
+              echo "NEW_VERSION=${LATEST_VERSION}"
+              echo "OLD_VERSION=${CURRENT_VERSION}"
+            } >> "${GITHUB_OUTPUT}"
           else
-            echo "✅ Cask is up to date ($CURRENT_VERSION)"
-            echo "UPDATE=false" >> "$GITHUB_OUTPUT"
+            echo "Cask is up to date (${CURRENT_VERSION})"
+            echo "UPDATE=false" >> "${GITHUB_OUTPUT}"
           fi
 
       # Step 3: Update cask file with new version and SHA256 hashes
       - name: Update cask file
         if: steps.check_update.outputs.UPDATE == 'true'
+        env:
+          CASK_FILE: "Casks/crocgui.rb"
+          NEW_VERSION: "${{ steps.check_update.outputs.NEW_VERSION }}"
+          OLD_VERSION: "${{ steps.check_update.outputs.OLD_VERSION }}"
         run: |
-          CASK_FILE="Casks/crocgui.rb"
-          NEW_VERSION="${{ steps.check_update.outputs.NEW_VERSION }}"
-          
-          echo "📥 Downloading new releases to calculate SHA256 hashes..."
+          echo "Downloading new releases to calculate SHA256 hashes..."
           
           # Function to calculate SHA256 hash of a URL
           get_sha256() {
@@ -67,33 +69,35 @@ jobs:
             temp_file="$(mktemp)"
             
             # Download file (silently with follow redirects)
-            curl -sL "$url" -o "$temp_file"
+            curl -sL "${url}" -o "${temp_file}"
             
             # Calculate SHA256 hash
-            sha256 "$temp_file" | awk '{print $1}'
+            sha256 "${temp_file}" | awk '{print $1}'
             
             # Clean up temp file
-            rm -f "$temp_file"
+            rm -f "${temp_file}"
           }
           
           # Calculate SHA256 for ARM64 version
           echo "Calculating SHA256 for ARM64..."
           ARM_SHA="$(get_sha256 "https://github.com/abakum/crocgui/releases/download/v${NEW_VERSION}/crocgui-arm64.dmg")"
+          export ARM_SHA
           
           # Calculate SHA256 for Intel version
           echo "Calculating SHA256 for Intel..."
           INTEL_SHA="$(get_sha256 "https://github.com/abakum/crocgui/releases/download/v${NEW_VERSION}/crocgui-amd64.dmg")"
+          export INTEL_SHA
           
-          echo "✅ SHA256 hashes calculated:"
-          echo "  ARM64: $ARM_SHA"
-          echo "  Intel: $INTEL_SHA"
+          echo "SHA256 hashes calculated:"
+          echo "  ARM64: ${ARM_SHA}"
+          echo "  Intel: ${INTEL_SHA}"
           
           # Update the cask file using Ruby for precise replacements
-          echo "📝 Updating cask file..."
+          echo "Updating cask file..."
           ruby <<-'RUBY'
             require 'yaml'
             
-            file = 'Casks/crocgui.rb'
+            file = ENV['CASK_FILE']
             content = File.read(file)
             
             # Replace version
@@ -106,41 +110,42 @@ jobs:
             content.gsub!(/sha256\s+intel:\s*"[a-f0-9]+"/, "         intel:        \"#{ENV['INTEL_SHA']}\"")
             
             File.write(file, content)
-            puts "✅ Cask file updated successfully"
+            puts "Cask file updated successfully"
           RUBY
 
       # Step 4: Commit and push changes to main branch
       - name: Commit and push changes
         if: steps.check_update.outputs.UPDATE == 'true'
+        env:
+          BRANCH_NAME: "update/crocgui-${{ steps.check_update.outputs.NEW_VERSION }}"
+          COMMIT_MESSAGE: "Update crocgui from ${{ steps.check_update.outputs.OLD_VERSION }} to ${{ steps.check_update.outputs.NEW_VERSION }}"
         run: |
           # Configure git identity
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           
           # Create a new branch for the update
-          BRANCH_NAME="update/crocgui-${{ steps.check_update.outputs.NEW_VERSION }}"
-          git checkout -b "$BRANCH_NAME"
+          git checkout -b "${BRANCH_NAME}"
           
           # Add changes
           git add Casks/crocgui.rb
           
           # Check if there are any changes to commit
           if git diff --cached --quiet; then
-            echo "⚠️ No changes to commit (file already up to date)"
+            echo "No changes to commit (file already up to date)"
             exit 0
           fi
           
           # Commit changes
-          COMMIT_MESSAGE="Update crocgui from ${{ steps.check_update.outputs.OLD_VERSION }} to ${{ steps.check_update.outputs.NEW_VERSION }}"
-          git commit -m "$COMMIT_MESSAGE"
+          git commit -m "${COMMIT_MESSAGE}"
           
           # Push changes to main branch
-          echo "🚀 Pushing changes to main branch..."
-          git push origin "$BRANCH_NAME"
+          echo "Pushing changes to main branch..."
+          git push origin "${BRANCH_NAME}"
           
           # Switch back to main and merge (optional)
           git checkout main
-          git merge "$BRANCH_NAME" --no-ff -m "Merge: $COMMIT_MESSAGE"
+          git merge "${BRANCH_NAME}" --no-ff -m "Merge: ${COMMIT_MESSAGE}"
           git push origin main
           
-          echo "✅ Successfully updated crocgui to version ${{ steps.check_update.outputs.NEW_VERSION }}"
+          echo "Successfully updated crocgui to version ${{ steps.check_update.outputs.NEW_VERSION }}"
