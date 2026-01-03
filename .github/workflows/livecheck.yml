@@ -1,97 +1,146 @@
+# shellcheck disable=SC2034,SC2086,SC2155,SC2129
 name: Auto-update Casks
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger only
 
 permissions:
-  contents: write
+  contents: write    # Required for direct push to main
 
 jobs:
   update-cask:
-    runs-on: macos-latest
+    runs-on: macos-latest  # Need macOS for DMG SHA256 calculation
     
     steps:
-      - name: Checkout and setup
+      # Step 1: Checkout repository and setup Homebrew
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Setup Homebrew
         uses: Homebrew/actions/setup-homebrew@main
 
-      - name: check_update
+      # Step 2: Check if update is available using brew livecheck
+      - name: Check for cask updates
         id: check_update
         run: |
-          JSON=$(brew livecheck --cask --json abakum/tap/crocgui 2>/dev/null || echo '[]')
+          echo "🔍 Checking for updates to crocgui cask..."
           
-          CURRENT=$(echo "$JSON" | jq -r '.[0].version.current // empty')
-          LATEST=$(echo "$JSON" | jq -r '.[0].version.latest // empty')
-          STATUS=$(echo "$JSON" | jq -r '.[0].version.status // empty')
+          # Get livecheck data in JSON format
+          LIVECHECK_JSON="$(brew livecheck --cask --json abakum/tap/crocgui 2>/dev/null || echo '[]')"
           
-          echo "CURRENT: $CURRENT"
-          echo "LATEST:   $LATEST"
-          echo "STATUS:  $STATUS"
+          # Parse JSON to get version information
+          CURRENT_VERSION="$(echo "$LIVECHECK_JSON" | jq -r '.[0].version.current // empty')"
+          LATEST_VERSION="$(echo "$LIVECHECK_JSON" | jq -r '.[0].version.latest // empty')"
+          STATUS="$(echo "$LIVECHECK_JSON" | jq -r '.[0].version.status // empty')"
           
-          if [[ "$STATUS" == "outdated" && -n "$CURRENT" && -n "$LATEST" ]]; then
-            echo "🔄 $CURRENT → $LATEST"
-            echo "UPDATE=true" >> $GITHUB_OUTPUT
-            echo "NEW_VERSION=$LATEST" >> $GITHUB_OUTPUT
-            echo "OLD_VERSION=$CURRENT" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+          echo "Latest version:  $LATEST_VERSION"
+          echo "Status:          $STATUS"
+          
+          # Determine if update is needed
+          if [[ "$STATUS" == "outdated" ]] && [[ -n "$CURRENT_VERSION" ]] && [[ -n "$LATEST_VERSION" ]]; then
+            echo "🔄 Update available: $CURRENT_VERSION → $LATEST_VERSION"
+            echo "UPDATE=true" >> "$GITHUB_OUTPUT"
+            echo "NEW_VERSION=$LATEST_VERSION" >> "$GITHUB_OUTPUT"
+            echo "OLD_VERSION=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
           else
-            echo "✅ ($CURRENT)"
-            echo "UPDATE=false" >> $GITHUB_OUTPUT
+            echo "✅ Cask is up to date ($CURRENT_VERSION)"
+            echo "UPDATE=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: UPDATE
+      # Step 3: Update cask file with new version and SHA256 hashes
+      - name: Update cask file
         if: steps.check_update.outputs.UPDATE == 'true'
         run: |
           CASK_FILE="Casks/crocgui.rb"
           NEW_VERSION="${{ steps.check_update.outputs.NEW_VERSION }}"
           
+          echo "📥 Downloading new releases to calculate SHA256 hashes..."
+          
+          # Function to calculate SHA256 hash of a URL
           get_sha256() {
             local url="$1"
-            local temp=$(mktemp)
-            curl -sL "$url" -o "$temp"
-            sha256 "$temp" | awk '{print $1}'
-            rm -f "$temp"
+            local temp_file
+            temp_file="$(mktemp)"
+            
+            # Download file (silently with follow redirects)
+            curl -sL "$url" -o "$temp_file"
+            
+            # Calculate SHA256 hash
+            sha256 "$temp_file" | awk '{print $1}'
+            
+            # Clean up temp file
+            rm -f "$temp_file"
           }
           
-          ARM_SHA=$(get_sha256 "https://github.com/abakum/crocgui/releases/download/v${NEW_VERSION}/crocgui-arm64.dmg")
-          INTEL_SHA=$(get_sha256 "https://github.com/abakum/crocgui/releases/download/v${NEW_VERSION}/crocgui-amd64.dmg")
+          # Calculate SHA256 for ARM64 version
+          echo "Calculating SHA256 for ARM64..."
+          ARM_SHA="$(get_sha256 "https://github.com/abakum/crocgui/releases/download/v${NEW_VERSION}/crocgui-arm64.dmg")"
           
-          echo "  arm64: $ARM_SHA"
-          echo "  intel: $INTEL_SHA"
+          # Calculate SHA256 for Intel version
+          echo "Calculating SHA256 for Intel..."
+          INTEL_SHA="$(get_sha256 "https://github.com/abakum/crocgui/releases/download/v${NEW_VERSION}/crocgui-amd64.dmg")"
           
+          echo "✅ SHA256 hashes calculated:"
+          echo "  ARM64: $ARM_SHA"
+          echo "  Intel: $INTEL_SHA"
+          
+          # Update the cask file using Ruby for precise replacements
+          echo "📝 Updating cask file..."
           ruby <<-'RUBY'
             require 'yaml'
             
             file = 'Casks/crocgui.rb'
             content = File.read(file)
             
+            # Replace version
             content.gsub!(/version "[\d\.]+"/, "version \"#{ENV['NEW_VERSION']}\"")
             
+            # Replace ARM SHA256 (preserving formatting)
             content.gsub!(/sha256\s+arm:\s*"[a-f0-9]+"/, "sha256 arm:          \"#{ENV['ARM_SHA']}\"")
             
+            # Replace Intel SHA256 (preserving formatting)
             content.gsub!(/sha256\s+intel:\s*"[a-f0-9]+"/, "         intel:        \"#{ENV['INTEL_SHA']}\"")
             
             File.write(file, content)
+            puts "✅ Cask file updated successfully"
           RUBY
-          
 
-      - name: PUSH
+      # Step 4: Commit and push changes to main branch
+      - name: Commit and push changes
         if: steps.check_update.outputs.UPDATE == 'true'
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Configure git identity
+          git config --local user.name "github-actions[bot]"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
           
+          # Create a new branch for the update
+          BRANCH_NAME="update/crocgui-${{ steps.check_update.outputs.NEW_VERSION }}"
+          git checkout -b "$BRANCH_NAME"
+          
+          # Add changes
           git add Casks/crocgui.rb
           
+          # Check if there are any changes to commit
           if git diff --cached --quiet; then
-            echo "no diff"
+            echo "⚠️ No changes to commit (file already up to date)"
             exit 0
           fi
           
-          git commit -m "Update crocgui from ${{ steps.check_update.outputs.OLD_VERSION }} to ${{ steps.check_update.outputs.NEW_VERSION }}"
+          # Commit changes
+          COMMIT_MESSAGE="Update crocgui from ${{ steps.check_update.outputs.OLD_VERSION }} to ${{ steps.check_update.outputs.NEW_VERSION }}"
+          git commit -m "$COMMIT_MESSAGE"
+          
+          # Push changes to main branch
+          echo "🚀 Pushing changes to main branch..."
+          git push origin "$BRANCH_NAME"
+          
+          # Switch back to main and merge (optional)
+          git checkout main
+          git merge "$BRANCH_NAME" --no-ff -m "Merge: $COMMIT_MESSAGE"
           git push origin main
           
-          echo "pushed to main!"
+          echo "✅ Successfully updated crocgui to version ${{ steps.check_update.outputs.NEW_VERSION }}"

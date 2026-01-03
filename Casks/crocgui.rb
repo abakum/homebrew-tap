@@ -20,7 +20,7 @@ cask "crocgui" do
     strategy :github_latest
   end
 
-  app "crocgui-#{arch}.app"
+  app "crocgui.app"
 
   zap trash: "~/Library/Preferences/fyne/com.github.howeyc.crocgui/preferences.json"
 end

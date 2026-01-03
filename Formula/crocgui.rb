@@ -5,13 +5,13 @@ class Crocgui < Formula
   url "https://github.com/abakum/crocgui/releases/download/v1.11.31/crocgui.tar.xz"
   sha256 "95bf3111512903185bd9d8216bc99bc100c43a9ae47a4ad2f21d53a23a22859c"
 
-  depends_on :linux
-
   livecheck do
     url :url
     strategy :github_latest
   end
-  
+
+  depends_on :linux
+
   def install
     system "tar", "-xf", cached_download
 
