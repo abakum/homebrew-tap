@@ -2,15 +2,15 @@
 
 ## How do I install these formulae?
 
-`brew install abakum/tap/<formula>`
+`brew install abakum/tap/crocgui`
 
-Or `brew tap abakum/tap` and then `brew install <formula>`.
+Or `brew tap abakum/tap` and then `brew install crocgui`.
 
 Or, in a `brew bundle` `Brewfile`:
 
 ```ruby
 tap "abakum/tap"
-brew "<formula>"
+brew "crocgui"
 ```
 
 ## Documentation
