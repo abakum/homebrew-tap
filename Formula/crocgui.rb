@@ -7,10 +7,9 @@ class Crocgui < Formula
   desc "GUI for croc — secure file transfer tool"
   homepage "https://github.com/abakum/crocgui"
 
-  depends_on :linux
-  def initialize(name = nil, realname = nil)
+  def initialize(*)
     super
-    raise Formulary::NotABuildableFormulaError, self unless OS.linux?
+    odie "This formula is Linux-only. Use 'brew install --cask abakum/tap/crocgui' instead." if OS.mac?
   end
 
   def install
@@ -22,7 +21,7 @@ class Crocgui < Formula
   end
 
   def post_install
-    system "update-desktop-database", "#{HOMEBREW_PREFIX}/share/applications" if OS.linux?
+    system "update-desktop-database", "#{HOMEBREW_PREFIX}/share/applications"
   end
 
   test do
