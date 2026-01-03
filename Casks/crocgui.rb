@@ -7,8 +7,8 @@ cask "crocgui" do
   version "1.11.31"
   sha256 arm:          "b90e67de3413ccbad2624b7b833215233a9ad38c8eaea682c886496e63392865",
          intel:        "4839530f83755f7759fd0de26ca43c6d5b9154e7e2cb8b4f47a6eedc0c8495ed",
-         arm64_linux:  "0",
-         x86_64_linux: "0"
+         arm64_linux:  :no_check,
+         x86_64_linux: :no_check
 
   url "https://github.com/abakum/crocgui/releases/download/v#{version}/crocgui-#{arch}.dmg"
   name "crocgui"
