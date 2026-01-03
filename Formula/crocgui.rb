@@ -7,6 +7,11 @@ class Crocgui < Formula
 
   depends_on :linux
 
+  livecheck do
+    url :url
+    strategy :github_latest
+  end
+  
   def install
     system "tar", "-xf", cached_download
 
