@@ -104,8 +104,8 @@ jobs:
             # Replace ARM SHA256 (preserving formatting)
             content.gsub!(/sha256\s+arm:\s*"[a-f0-9]+"/, "sha256 arm:          \"#{ENV['ARM_SHA']}\"")
             
-            # Replace Intel SHA256 (preserving formatting)
-            content.gsub!(/sha256\s+intel:\s*"[a-f0-9]+"/, "         intel:        \"#{ENV['INTEL_SHA']}\"")
+            # Replace Intel SHA256
+            content.gsub!(/intel:\s*"[a-f0-9]+"/, "intel:        \"#{ENV['INTEL_SHA']}\"")
             
             File.write(file, content)
             puts "Cask file updated successfully"
