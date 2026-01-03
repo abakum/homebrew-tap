@@ -14,12 +14,7 @@ cask "crocgui" do
   desc "GUI for croc — secure file transfer tool"
   homepage "https://github.com/abakum/crocgui"
 
-  depends_on macos: ">= :sierra"
-
   app "crocgui-#{arch}.app"
 
-  zap trash: [
-    "~/Library/Application Support/crocgui",
-    "~/Library/Preferences/com.crocgui.plist",
-  ]
+  zap trash: "~/Library/Application Support/crocgui"
 end
