@@ -16,7 +16,7 @@ cask "crocgui" do
 
   depends_on macos: ">= :sierra"
 
-  app "crocgui.app"
+  app "crocgui-#{arch}.app"
 
   zap trash: [
     "~/Library/Application Support/crocgui",
