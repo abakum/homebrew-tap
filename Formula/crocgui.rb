@@ -1,16 +1,11 @@
 class Crocgui < Formula
-  version "1.11.31"
-
-  url "https://github.com/abakum/crocgui/releases/download/v#{version}/crocgui.tar.xz"
-  sha256 "95bf3111512903185bd9d8216bc99bc100c43a9ae47a4ad2f21d53a23a22859c"
-  name "crocgui"
   desc "GUI for croc — secure file transfer tool"
   homepage "https://github.com/abakum/crocgui"
 
-  def initialize(*)
-    super
-    odie "This formula is Linux-only. Use 'brew install --cask abakum/tap/crocgui' instead." if OS.mac?
-  end
+  url "https://github.com/abakum/crocgui/releases/download/v1.11.31/crocgui.tar.xz"
+  sha256 "95bf3111512903185bd9d8216bc99bc100c43a9ae47a4ad2f21d53a23a22859c"
+
+  depends_on :linux
 
   def install
     system "tar", "-xf", cached_download
