@@ -1,4 +1,4 @@
-name: Auto-update Casks
+name: Auto-update Casks and Formula
 
 on:
   workflow_dispatch:  # Manual trigger only
@@ -21,43 +21,81 @@ jobs:
       - name: Setup Homebrew
         uses: Homebrew/actions/setup-homebrew@main
 
-      # Step 2: Check if update is available using brew livecheck
+      # Step 2: Check if update is available for cask
       - name: Check for cask updates
-        id: check_update
+        id: check_cask_update
         run: |
           echo "Checking for updates to crocgui cask..."
           
-          # Get livecheck data in JSON format
-          LIVECHECK_JSON="$(brew livecheck --cask --json abakum/tap/crocgui 2>/dev/null || echo '[]')"
+          # Get livecheck data for cask in JSON format
+          LIVECHECK_CASK_JSON="$(brew livecheck --cask --json abakum/tap/crocgui 2>/dev/null || echo '[]')"
           
-          # Parse JSON to get version information
-          CURRENT_VERSION="$(echo "${LIVECHECK_JSON}" | jq -r '.[0].version.current // empty')"
-          LATEST_VERSION="$(echo "${LIVECHECK_JSON}" | jq -r '.[0].version.latest // empty')"
+          # Parse JSON to get version information for cask
+          CURRENT_VERSION_CASK="$(echo "${LIVECHECK_CASK_JSON}" | jq -r '.[0].version.current // empty')"
+          LATEST_VERSION_CASK="$(echo "${LIVECHECK_CASK_JSON}" | jq -r '.[0].version.latest // empty')"
           
-          echo "Current version: ${CURRENT_VERSION}"
-          echo "Latest version:  ${LATEST_VERSION}"
+          echo "Cask - Current version: ${CURRENT_VERSION_CASK}"
+          echo "Cask - Latest version:  ${LATEST_VERSION_CASK}"
           
-          # Determine if update is needed by comparing versions
-          if [[ -n "${CURRENT_VERSION}" ]] && [[ -n "${LATEST_VERSION}" ]] && [[ "${CURRENT_VERSION}" != "${LATEST_VERSION}" ]]; then
-            echo "Update available: ${CURRENT_VERSION} → ${LATEST_VERSION}"
+          # Determine if cask update is needed
+          if [[ -n "${CURRENT_VERSION_CASK}" ]] && [[ -n "${LATEST_VERSION_CASK}" ]] && [[ "${CURRENT_VERSION_CASK}" != "${LATEST_VERSION_CASK}" ]]; then
+            echo "Cask update available: ${CURRENT_VERSION_CASK} → ${LATEST_VERSION_CASK}"
             {
-              echo "UPDATE=true"
-              echo "NEW_VERSION=${LATEST_VERSION}"
-              echo "OLD_VERSION=${CURRENT_VERSION}"
+              echo "UPDATE_CASK=true"
+              echo "NEW_VERSION_CASK=${LATEST_VERSION_CASK}"
+              echo "OLD_VERSION_CASK=${CURRENT_VERSION_CASK}"
             } >> "${GITHUB_OUTPUT}"
           else
-            echo "Cask is up to date (${CURRENT_VERSION})"
-            echo "UPDATE=false" >> "${GITHUB_OUTPUT}"
+            echo "Cask is up to date (${CURRENT_VERSION_CASK})"
+            {
+              echo "UPDATE_CASK=false"
+              echo "NEW_VERSION_CASK=${LATEST_VERSION_CASK:-${CURRENT_VERSION_CASK}}"
+              echo "OLD_VERSION_CASK=${CURRENT_VERSION_CASK}"
+            } >> "${GITHUB_OUTPUT}"
           fi
 
-      # Step 3: Update cask file with new version and SHA256 hashes
+      # Step 3: Check if update is available for formula
+      - name: Check for formula updates
+        id: check_formula_update
+        run: |
+          echo "Checking for updates to crocgui formula..."
+          
+          # Get livecheck data for formula in JSON format
+          LIVECHECK_FORMULA_JSON="$(brew livecheck --formula --json abakum/tap/crocgui 2>/dev/null || echo '[]')"
+          
+          # Parse JSON to get version information for formula
+          CURRENT_VERSION_FORMULA="$(echo "${LIVECHECK_FORMULA_JSON}" | jq -r '.[0].version.current // empty')"
+          LATEST_VERSION_FORMULA="$(echo "${LIVECHECK_FORMULA_JSON}" | jq -r '.[0].version.latest // empty')"
+          
+          echo "Formula - Current version: ${CURRENT_VERSION_FORMULA}"
+          echo "Formula - Latest version:  ${LATEST_VERSION_FORMULA}"
+          
+          # Determine if formula update is needed
+          if [[ -n "${CURRENT_VERSION_FORMULA}" ]] && [[ -n "${LATEST_VERSION_FORMULA}" ]] && [[ "${CURRENT_VERSION_FORMULA}" != "${LATEST_VERSION_FORMULA}" ]]; then
+            echo "Formula update available: ${CURRENT_VERSION_FORMULA} → ${LATEST_VERSION_FORMULA}"
+            {
+              echo "UPDATE_FORMULA=true"
+              echo "NEW_VERSION_FORMULA=${LATEST_VERSION_FORMULA}"
+              echo "OLD_VERSION_FORMULA=${CURRENT_VERSION_FORMULA}"
+            } >> "${GITHUB_OUTPUT}"
+          else
+            echo "Formula is up to date (${CURRENT_VERSION_FORMULA})"
+            {
+              echo "UPDATE_FORMULA=false"
+              echo "NEW_VERSION_FORMULA=${LATEST_VERSION_FORMULA:-${CURRENT_VERSION_FORMULA}}"
+              echo "OLD_VERSION_FORMULA=${CURRENT_VERSION_FORMULA}"
+            } >> "${GITHUB_OUTPUT}"
+          fi
+
+      # Step 4: Update cask file with new version and SHA256 hashes
       - name: Update cask file
-        if: steps.check_update.outputs.UPDATE == 'true'
+        if: steps.check_cask_update.outputs.UPDATE_CASK == 'true'
         env:
           CASK_FILE: "Casks/crocgui.rb"
-          NEW_VERSION: "${{ steps.check_update.outputs.NEW_VERSION }}"
-          OLD_VERSION: "${{ steps.check_update.outputs.OLD_VERSION }}"
+          NEW_VERSION: "${{ steps.check_cask_update.outputs.NEW_VERSION_CASK }}"
+          OLD_VERSION_CASK: "${{ steps.check_cask_update.outputs.OLD_VERSION_CASK }}"
         run: |
+          echo "Updating cask file..."
           echo "Downloading new releases to calculate SHA256 hashes..."
           
           # Function to calculate SHA256 hash of a URL
@@ -111,12 +149,63 @@ jobs:
             puts "Cask file updated successfully"
           RUBY
 
-      # Step 4: Commit and push changes to main branch
-      - name: Commit and push changes
-        if: steps.check_update.outputs.UPDATE == 'true'
+      # Step 5: Update formula file with new version and SHA256 hash
+      - name: Update formula file
+        if: steps.check_formula_update.outputs.UPDATE_FORMULA == 'true'
         env:
-          BRANCH_NAME: "update/crocgui-${{ steps.check_update.outputs.NEW_VERSION }}"
-          COMMIT_MESSAGE: "Update crocgui from ${{ steps.check_update.outputs.OLD_VERSION }} to ${{ steps.check_update.outputs.NEW_VERSION }}"
+          FORMULA_FILE: "Formula/crocgui.rb"
+          NEW_VERSION: "${{ steps.check_formula_update.outputs.NEW_VERSION_FORMULA }}"
+          OLD_VERSION_FORMULA: "${{ steps.check_formula_update.outputs.OLD_VERSION_FORMULA }}"
+        run: |
+          echo "Updating formula file..."
+          echo "Downloading tar.xz to calculate SHA256 hash..."
+          
+          # Function to calculate SHA256 hash of a URL
+          get_sha256() {
+            local url="$1"
+            local temp_file
+            temp_file="$(mktemp)"
+            
+            # Download file (silently with follow redirects)
+            curl -sL "${url}" -o "${temp_file}"
+            
+            # Calculate SHA256 hash (use shasum on macOS)
+            shasum -a 256 "${temp_file}" | awk '{print $1}'
+            
+            # Clean up temp file
+            rm -f "${temp_file}"
+          }
+          
+          # Calculate SHA256 for tar.xz
+          echo "Calculating SHA256 for tar.xz..."
+          TAR_SHA="$(get_sha256 "https://github.com/abakum/crocgui/releases/download/v${NEW_VERSION}/crocgui.tar.xz")"
+          export TAR_SHA
+          
+          echo "SHA256 hash calculated: ${TAR_SHA}"
+          
+          # Update the formula file using Ruby for precise replacements
+          echo "Updating formula file..."
+          ruby <<-'RUBY'
+            file = ENV['FORMULA_FILE']
+            content = File.read(file)
+            
+            # Replace URL with new version
+            content.gsub!(%r{url "https://github\.com/abakum/crocgui/releases/download/v[\d\.]+/crocgui\.tar\.xz"},
+                         "url \"https://github.com/abakum/crocgui/releases/download/v#{ENV['NEW_VERSION']}/crocgui.tar.xz\"")
+            
+            # Replace SHA256 hash
+            content.gsub!(/sha256 "[a-f0-9]+"/, "sha256 \"#{ENV['TAR_SHA']}\"")
+            
+            File.write(file, content)
+            puts "Formula file updated successfully"
+          RUBY
+
+      # Step 6: Commit and push changes to main branch
+      - name: Commit and push changes
+        if: steps.check_cask_update.outputs.UPDATE_CASK == 'true' || steps.check_formula_update.outputs.UPDATE_FORMULA == 'true'
+        env:
+          BRANCH_NAME: "update/crocgui"
+          COMMIT_MESSAGE: "Update crocgui"
         run: |
           # Configure git identity
           git config --local user.name "github-actions[bot]"
@@ -125,17 +214,60 @@ jobs:
           # Create a new branch for the update
           git checkout -b "${BRANCH_NAME}"
           
+          # Build commit message based on what was updated
+          COMMIT_PARTS=()
+          
+          if [[ "${{ steps.check_cask_update.outputs.UPDATE_CASK }}" == "true" ]]; then
+            COMMIT_PARTS+=("cask: ${{ steps.check_cask_update.outputs.OLD_VERSION_CASK }} → ${{ steps.check_cask_update.outputs.NEW_VERSION_CASK }}")
+          fi
+          
+          if [[ "${{ steps.check_formula_update.outputs.UPDATE_FORMULA }}" == "true" ]]; then
+            COMMIT_PARTS+=("formula: ${{ steps.check_formula_update.outputs.OLD_VERSION_FORMULA }} → ${{ steps.check_formula_update.outputs.NEW_VERSION_FORMULA }}")
+          fi
+          
+          # Create final commit message
+          if [[ ${#COMMIT_PARTS[@]} -gt 0 ]]; then
+            FINAL_COMMIT_MESSAGE="${COMMIT_MESSAGE} (${COMMIT_PARTS[0]}"
+            for i in "${!COMMIT_PARTS[@]}"; do
+              if [[ $i -gt 0 ]]; then
+                FINAL_COMMIT_MESSAGE="${FINAL_COMMIT_MESSAGE}, ${COMMIT_PARTS[$i]}"
+              fi
+            done
+            FINAL_COMMIT_MESSAGE="${FINAL_COMMIT_MESSAGE})"
+          else
+            FINAL_COMMIT_MESSAGE="${COMMIT_MESSAGE}"
+          fi
+          
+          echo "Commit message: ${FINAL_COMMIT_MESSAGE}"
+          
           # Add changes
-          git add Casks/crocgui.rb
+          CHANGES_MADE=false
+          if [[ "${{ steps.check_cask_update.outputs.UPDATE_CASK }}" == "true" ]]; then
+            if git diff --name-only -- Casks/crocgui.rb | grep -q .; then
+              git add Casks/crocgui.rb
+              CHANGES_MADE=true
+            else
+              echo "No actual changes in cask file"
+            fi
+          fi
+          
+          if [[ "${{ steps.check_formula_update.outputs.UPDATE_FORMULA }}" == "true" ]]; then
+            if git diff --name-only -- Formula/crocgui.rb | grep -q .; then
+              git add Formula/crocgui.rb
+              CHANGES_MADE=true
+            else
+              echo "No actual changes in formula file"
+            fi
+          fi
           
           # Check if there are any changes to commit
-          if git diff --cached --quiet; then
-            echo "No changes to commit (file already up to date)"
+          if ! ${CHANGES_MADE}; then
+            echo "No changes to commit (files already up to date)"
             exit 0
           fi
           
           # Commit changes
-          git commit -m "${COMMIT_MESSAGE}"
+          git commit -m "${FINAL_COMMIT_MESSAGE}"
           
           # Configure git to use the token for authentication
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
@@ -146,7 +278,7 @@ jobs:
           
           # Switch back to main and merge
           git checkout main
-          git merge "${BRANCH_NAME}" --no-ff -m "Merge: ${COMMIT_MESSAGE}"
+          git merge "${BRANCH_NAME}" --no-ff -m "${FINAL_COMMIT_MESSAGE}"
           git push origin main
           
-          echo "Successfully updated crocgui to version ${{ steps.check_update.outputs.NEW_VERSION }}"
+          echo "Successfully updated crocgui"
