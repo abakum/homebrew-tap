@@ -14,6 +14,7 @@ cask "crocgui" do
   name "crocgui"
   desc "GUI for croc — secure file transfer tool"
   homepage "https://github.com/abakum/crocgui"
+  license "ISC"
 
   livecheck do
     url :url

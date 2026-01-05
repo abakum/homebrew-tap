@@ -2,7 +2,7 @@
     "version": "1.11.32",
     "description": "GUI for croc — secure file transfer tool",
     "homepage": "https://github.com/abakum/crocgui",
-    "license": "MIT",
+    "license": "ISC",
     "url": "https://github.com/abakum/crocgui/releases/download/v1.11.32/crocgui.exe",
     "hash": "9ad622f44d617bcb18e88d1e43eacc068b6daa6ffb10271846741cd8ffa68cc7",
     "bin": "crocgui.exe",
