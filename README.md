@@ -6,7 +6,7 @@
 
 ## How do I install on Linux?
 
-`brew install abakum/tap/crocgui`
+`brew install --formula abakum/tap/crocgui`
 
 Or `brew tap abakum/tap` and then `brew install crocgui`.
 
