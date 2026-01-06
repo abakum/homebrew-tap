@@ -1,6 +1,10 @@
 # Abakum Tap
 
-## How do I install these formulae?
+## How do I install on macOS?
+
+`brew install --cask abakum/tap/crocgui`
+
+## How do I install on Linux?
 
 `brew install abakum/tap/crocgui`
 
@@ -16,3 +20,7 @@ brew "crocgui"
 ## Documentation
 
 `brew help`, `man brew` or check [Homebrew's documentation](https://docs.brew.sh).
+
+## scoop
+`scoop bucket add abakum https://github.com/abakum/homebrew-tap`
+`scoop bucket list`
