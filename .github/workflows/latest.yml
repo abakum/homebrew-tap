@@ -1,4 +1,4 @@
-name: Update Casks, Formula and Scoop Manifest via GitHub API
+name: Update Casks, Formula and bucket via GitHub API
 
 on:
   workflow_dispatch:  # Manual trigger only
@@ -8,17 +8,16 @@ permissions:
 
 jobs:
   update-all:
-    runs-on: ubuntu-latest  # Can use any runner, ubuntu is cheaper/faster than macOS
+    runs-on: ubuntu-latest
     
     steps:
-      # Step 1: Checkout the repository
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      # Step 2: Get latest release info using GitHub API (Octokit)
+      # Step 1: Get latest release info via GitHub API
       - name: Get latest release info via GitHub API
         id: get_release
         uses: octokit/request-action@v2.x
@@ -27,63 +26,58 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Step 3: Extract version and SHA256 hashes from API response
+      # Step 2: Extract version and hashes
       - name: Extract version and hashes
         id: extract_data
         run: |
-          # Save API response to a temporary file
           echo '${{ steps.get_release.outputs.data }}' > release.json
-          
-          # Install jq for JSON parsing
           sudo apt-get install -y jq
           
-          # Extract version (remove 'v' prefix)
           VERSION=$(jq -r '.tag_name | ltrimstr("v")' release.json)
           echo "Latest version: $VERSION"
           
-          # Extract SHA256 hashes from the .digest field (format: 'sha256:...')
           TAR_SHA=$(jq -r '.assets[] | select(.name == "crocgui.tar.xz") | .digest // empty' release.json | cut -d: -f2)
           EXE_SHA=$(jq -r '.assets[] | select(.name == "crocgui.exe") | .digest // empty' release.json | cut -d: -f2)
           DMG_ARM_SHA=$(jq -r '.assets[] | select(.name == "crocgui-arm64.dmg") | .digest // empty' release.json | cut -d: -f2)
           DMG_INTEL_SHA=$(jq -r '.assets[] | select(.name == "crocgui-amd64.dmg") | .digest // empty' release.json | cut -d: -f2)
           
-          # Verify all required hashes were found
           if [[ -z "$TAR_SHA" || -z "$EXE_SHA" || -z "$DMG_ARM_SHA" || -z "$DMG_INTEL_SHA" ]]; then
             echo "Error: Some SHA256 hashes not found in release assets"
-            echo "Make sure all required files are present in the GitHub release"
             exit 1
           fi
           
           echo "SHA256 hashes found:"
-          echo "  tar.xz (Linux): $TAR_SHA"
-          echo "  exe (Windows): $EXE_SHA"
-          echo "  dmg-arm64 (macOS Apple Silicon): $DMG_ARM_SHA"
-          echo "  dmg-amd64 (macOS Intel): $DMG_INTEL_SHA"
+          echo "  tar.xz: $TAR_SHA"
+          echo "  exe: $EXE_SHA"
+          echo "  dmg-arm64: $DMG_ARM_SHA"
+          echo "  dmg-amd64: $DMG_INTEL_SHA"
           
-          # Save data for subsequent steps
           echo "LATEST_VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "TAR_SHA=$TAR_SHA" >> $GITHUB_OUTPUT
           echo "EXE_SHA=$EXE_SHA" >> $GITHUB_OUTPUT
           echo "DMG_ARM_SHA=$DMG_ARM_SHA" >> $GITHUB_OUTPUT
           echo "DMG_INTEL_SHA=$DMG_INTEL_SHA" >> $GITHUB_OUTPUT
 
-      # Step 4: Check current versions in our package files
+      # Step 3: Check current versions (FIXED for all file types)
       - name: Check current versions in package files
         id: check_versions
         run: |
-          # Read current versions from files
+          # Cask: version is explicit "version "1.2.3""
           CURRENT_VERSION_CASK=$(grep -oP 'version "\K[^"]+' Casks/crocgui.rb 2>/dev/null || echo "")
-          CURRENT_VERSION_FORMULA=$(grep -oP 'version "\K[^"]+' Formula/crocgui.rb 2>/dev/null || echo "")
+          
+          # Formula: version is in URL - extract from https://.../vX.X.X/crocgui.tar.xz
+          CURRENT_VERSION_FORMULA=$(grep -oP 'releases/download/v\K[^/]+' Formula/crocgui.rb 2>/dev/null || echo "")
+          
+          # Scoop: version is in JSON field
           CURRENT_VERSION_SCOOP=$(jq -r '.version // empty' bucket/crocgui.json 2>/dev/null || echo "")
           
-          echo "Current versions in package files:"
-          echo "  Homebrew Cask (macOS): $CURRENT_VERSION_CASK"
-          echo "  Homebrew Formula (Linux): $CURRENT_VERSION_FORMULA"
-          echo "  Scoop Manifest (Windows): $CURRENT_VERSION_SCOOP"
+          echo "Current versions:"
+          echo "  Cask: $CURRENT_VERSION_CASK"
+          echo "  Formula: $CURRENT_VERSION_FORMULA"
+          echo "  Scoop: $CURRENT_VERSION_SCOOP"
           
           LATEST_VERSION="${{ steps.extract_data.outputs.LATEST_VERSION }}"
           
-          # Determine which packages need updates
           UPDATE_CASK=false
           UPDATE_FORMULA=false
           UPDATE_SCOOP=false
@@ -101,11 +95,10 @@ jobs:
           fi
           
           echo "Updates needed:"
-          echo "  Homebrew Cask: $UPDATE_CASK"
-          echo "  Homebrew Formula: $UPDATE_FORMULA"
-          echo "  Scoop Manifest: $UPDATE_SCOOP"
+          echo "  Cask: $UPDATE_CASK"
+          echo "  Formula: $UPDATE_FORMULA"
+          echo "  Scoop: $UPDATE_SCOOP"
           
-          # Export results for conditional steps
           echo "UPDATE_CASK=$UPDATE_CASK" >> $GITHUB_OUTPUT
           echo "UPDATE_FORMULA=$UPDATE_FORMULA" >> $GITHUB_OUTPUT
           echo "UPDATE_SCOOP=$UPDATE_SCOOP" >> $GITHUB_OUTPUT
@@ -113,7 +106,7 @@ jobs:
           echo "CURRENT_VERSION_FORMULA=$CURRENT_VERSION_FORMULA" >> $GITHUB_OUTPUT
           echo "CURRENT_VERSION_SCOOP=$CURRENT_VERSION_SCOOP" >> $GITHUB_OUTPUT
 
-      # Step 5: Update Homebrew Cask for macOS (if needed)
+      # Step 4: Update Cask (if needed)
       - name: Update Homebrew Cask file
         if: steps.check_versions.outputs.UPDATE_CASK == 'true'
         env:
@@ -130,16 +123,15 @@ jobs:
             # Update version number
             content.gsub!(/version "[\d\.]+"/, "version \"#{ENV['NEW_VERSION']}\"")
             
-            # Update SHA256 hashes for both architectures
-            # Format: sha256 arm: "...", intel: "..."
+            # Update SHA256 hashes
             content.gsub!(/sha256\s+arm:\s*"[a-f0-9]+"/, "sha256 arm:          \"#{ENV['ARM_SHA']}\"")
             content.gsub!(/intel:\s*"[a-f0-9]+"/, "intel:        \"#{ENV['INTEL_SHA']}\"")
             
             File.write(file, content)
-            puts "✅ Homebrew Cask file updated to v#{ENV['NEW_VERSION']}"
+            puts "✅ Cask file updated to v#{ENV['NEW_VERSION']}"
           RUBY
 
-      # Step 6: Update Homebrew Formula for Linux (if needed)
+      # Step 5: Update Formula (FIXED - no version field to update)
       - name: Update Homebrew Formula file
         if: steps.check_versions.outputs.UPDATE_FORMULA == 'true'
         env:
@@ -152,21 +144,19 @@ jobs:
             file = "Formula/crocgui.rb"
             content = File.read(file)
             
-            # Update download URL with new version
-            content.gsub!(%r{url "https://github\.com/abakum/crocgui/releases/download/v[\d\.]+/crocgui\.tar\.xz"},
-                         "url \"https://github.com/abakum/crocgui/releases/download/v#{ENV['NEW_VERSION']}/crocgui.tar.xz\"")
-            
-            # Update version number
-            content.gsub!(/version "[\d\.]+"/, "version \"#{ENV['NEW_VERSION']}\"")
+            # Update URL with new version (Formula doesn't have explicit version field)
+            old_url_pattern = %r{url "https://github\.com/abakum/crocgui/releases/download/v[\d\.]+/crocgui\.tar\.xz"}
+            new_url = "url \"https://github.com/abakum/crocgui/releases/download/v#{ENV['NEW_VERSION']}/crocgui.tar.xz\""
+            content.gsub!(old_url_pattern, new_url)
             
             # Update SHA256 hash
             content.gsub!(/sha256 "[a-f0-9]+"/, "sha256 \"#{ENV['TAR_SHA']}\"")
             
             File.write(file, content)
-            puts "✅ Homebrew Formula file updated to v#{ENV['NEW_VERSION']}"
+            puts "✅ Formula file updated to v#{ENV['NEW_VERSION']}"
           RUBY
 
-      # Step 7: Update Scoop Manifest for Windows (if needed)
+      # Step 6: Update Scoop Manifest (if needed)
       - name: Update Scoop Manifest file
         if: steps.check_versions.outputs.UPDATE_SCOOP == 'true'
         env:
@@ -180,7 +170,6 @@ jobs:
             
             file = "bucket/crocgui.json"
             
-            # Read existing manifest or create template if it doesn't exist
             if File.exist?(file)
               data = JSON.parse(File.read(file))
             else
@@ -200,30 +189,25 @@ jobs:
               }
             end
             
-            # Update manifest fields
             data["version"] = ENV['NEW_VERSION']
             data["url"] = "https://github.com/abakum/crocgui/releases/download/v#{ENV['NEW_VERSION']}/crocgui.exe"
             data["hash"] = ENV['EXE_SHA']
             
-            # Write back with pretty formatting
             File.write(file, JSON.pretty_generate(data))
-            puts "✅ Scoop Manifest updated to v#{ENV['NEW_VERSION']}"
+            puts "✅ Scoop manifest updated to v#{ENV['NEW_VERSION']}"
           RUBY
 
-      # Step 8: Commit and push changes if any updates were made
+      # Step 7: Commit and push changes
       - name: Commit and push changes
         if: steps.check_versions.outputs.UPDATE_CASK == 'true' || steps.check_versions.outputs.UPDATE_FORMULA == 'true' || steps.check_versions.outputs.UPDATE_SCOOP == 'true'
         env:
           BRANCH_NAME: "update/crocgui-v${{ steps.extract_data.outputs.LATEST_VERSION }}"
         run: |
-          # Configure git identity
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Create a new branch for the update
           git checkout -b "$BRANCH_NAME"
           
-          # Add changed files based on what was updated
           FILES_TO_ADD=""
           if [[ "${{ steps.check_versions.outputs.UPDATE_CASK }}" == "true" ]]; then
             FILES_TO_ADD="$FILES_TO_ADD Casks/crocgui.rb"
@@ -237,13 +221,11 @@ jobs:
           
           git add $FILES_TO_ADD
           
-          # Check if there are actual changes to commit
           if git diff --cached --quiet; then
-            echo "No changes to commit (files may already be up to date)"
+            echo "No changes to commit"
             exit 0
           fi
           
-          # Build descriptive commit message
           COMMIT_PARTS=()
           if [[ "${{ steps.check_versions.outputs.UPDATE_CASK }}" == "true" ]]; then
             COMMIT_PARTS+=("cask: ${{ steps.check_versions.outputs.CURRENT_VERSION_CASK }} → ${{ steps.extract_data.outputs.LATEST_VERSION }}")
@@ -255,7 +237,6 @@ jobs:
             COMMIT_PARTS+=("scoop: ${{ steps.check_versions.outputs.CURRENT_VERSION_SCOOP }} → ${{ steps.extract_data.outputs.LATEST_VERSION }}")
           fi
           
-          # Format commit message: "Update crocgui (cask: 1.11.31 → 1.11.32, formula: ...)"
           COMMIT_MESSAGE="Update crocgui (${COMMIT_PARTS[0]}"
           for i in "${!COMMIT_PARTS[@]}"; do
             if [[ $i -gt 0 ]]; then
@@ -266,12 +247,7 @@ jobs:
           
           echo "Commit message: $COMMIT_MESSAGE"
           
-          # Commit and push to the new branch
           git commit -m "$COMMIT_MESSAGE"
           git push origin "$BRANCH_NAME"
           
-          echo "✅ Changes successfully pushed to branch: $BRANCH_NAME"
-          echo "✅ Package files updated for all platforms:"
-          echo "   - macOS (Homebrew Cask)"
-          echo "   - Linux (Homebrew Formula)" 
-          echo "   - Windows (Scoop Manifest)"
+          echo "✅ Changes pushed to branch $BRANCH_NAME"
