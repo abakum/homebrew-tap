@@ -22,5 +22,10 @@ cask "crocgui" do
 
   app "crocgui.app"
 
+  postflight do
+    system_command "/usr/bin/xattr",
+                   args: ["-d", "com.apple.quarantine", staged_path/"crocgui.app"]
+  end
+
   zap trash: "~/Library/Preferences/fyne/com.github.howeyc.crocgui/preferences.json"
 end
