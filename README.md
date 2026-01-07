@@ -8,19 +8,9 @@
 
 `brew install --formula abakum/tap/crocgui`
 
-Or `brew tap abakum/tap` and then `brew install crocgui`.
+Or `brew tap abakum/tap` and then `brew install --cask crocgui` or `brew install --formula crocgui`.
 
-Or, in a `brew bundle` `Brewfile`:
-
-```ruby
-tap "abakum/tap"
-brew "crocgui"
-```
-
-## Documentation
-
-`brew help`, `man brew` or check [Homebrew's documentation](https://docs.brew.sh).
-
-## scoop
+## How do I install on Windows?
 `scoop bucket add abakum https://github.com/abakum/homebrew-tap`
 `scoop bucket list`
+`scoop install crocgui`
