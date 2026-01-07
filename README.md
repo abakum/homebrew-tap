@@ -14,3 +14,15 @@ Or `brew tap abakum/tap` and then `brew install --cask crocgui` or `brew install
 `scoop bucket add abakum https://github.com/abakum/homebrew-tap`
 `scoop bucket list`
 `scoop install crocgui`
+
+## How do I run on macOS?
+
+`open /Applications/crocgui.app`
+
+## How do I run on Linux?
+
+`crocgui`
+
+## How do I run on Windows?
+
+`crocgui`
