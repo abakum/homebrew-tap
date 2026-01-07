@@ -1,4 +1,4 @@
-name: Auto-update Casks and Formula
+name: Update Casks, Formula and Scoop Manifest via brew livecheck
 
 on:
   workflow_dispatch:  # Manual trigger only
