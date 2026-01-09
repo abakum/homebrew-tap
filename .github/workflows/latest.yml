@@ -186,7 +186,7 @@ jobs:
                 "version" => ENV['NEW_VERSION'],
                 "description" => "GUI for croc — secure file transfer tool",
                 "homepage" => "https://github.com/abakum/crocgui",
-                "license" => "MIT",
+                "license" => "ISC",
                 "url" => "",
                 "hash" => "",
                 "bin" => "crocgui.exe",
@@ -208,7 +208,7 @@ jobs:
             puts "Scoop Manifest updated to v#{ENV['NEW_VERSION']}"
           RUBY
 
-      # Step 8: Commit and push changes DIRECTLY TO MAIN (like the original workflow)
+      # Step 8: Commit and push changes DIRECTLY TO MAIN
       - name: Commit and push changes to main
         if: steps.check_versions.outputs.UPDATE_CASK == 'true' || steps.check_versions.outputs.UPDATE_FORMULA == 'true' || steps.check_versions.outputs.UPDATE_SCOOP == 'true'
         env:
