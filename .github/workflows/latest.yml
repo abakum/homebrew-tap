@@ -1,7 +1,7 @@
 name: Update Casks, Formula and bucket via GitHub API
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch:
 
 permissions:
   contents: write
