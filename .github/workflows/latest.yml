@@ -61,12 +61,14 @@ jobs:
           echo "  dmg-arm64 (macOS Apple Silicon): $DMG_ARM_SHA"
           echo "  dmg-amd64 (macOS Intel): $DMG_INTEL_SHA"
           
-          # Save data for subsequent steps
-          echo "LATEST_VERSION=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "TAR_SHA=$TAR_SHA" >> "$GITHUB_OUTPUT"
-          echo "EXE_SHA=$EXE_SHA" >> "$GITHUB_OUTPUT"
-          echo "DMG_ARM_SHA=$DMG_ARM_SHA" >> "$GITHUB_OUTPUT"
-          echo "DMG_INTEL_SHA=$DMG_INTEL_SHA" >> "$GITHUB_OUTPUT"
+          # Save data for subsequent steps (объединенные echo для SC2129)
+          {
+            echo "LATEST_VERSION=$VERSION"
+            echo "TAR_SHA=$TAR_SHA"
+            echo "EXE_SHA=$EXE_SHA"
+            echo "DMG_ARM_SHA=$DMG_ARM_SHA"
+            echo "DMG_INTEL_SHA=$DMG_INTEL_SHA"
+          } >> "$GITHUB_OUTPUT"
 
       # Step 4: Check current versions in our package files
       - name: Check current versions in package files
@@ -106,13 +108,15 @@ jobs:
           echo "  Homebrew Formula: $UPDATE_FORMULA"
           echo "  Scoop Manifest: $UPDATE_SCOOP"
           
-          # Export results for conditional steps
-          echo "UPDATE_CASK=$UPDATE_CASK" >> "$GITHUB_OUTPUT"
-          echo "UPDATE_FORMULA=$UPDATE_FORMULA" >> "$GITHUB_OUTPUT"
-          echo "UPDATE_SCOOP=$UPDATE_SCOOP" >> "$GITHUB_OUTPUT"
-          echo "CURRENT_VERSION_CASK=$CURRENT_VERSION_CASK" >> "$GITHUB_OUTPUT"
-          echo "CURRENT_VERSION_FORMULA=$CURRENT_VERSION_FORMULA" >> "$GITHUB_OUTPUT"
-          echo "CURRENT_VERSION_SCOOP=$CURRENT_VERSION_SCOOP" >> "$GITHUB_OUTPUT"
+          # Export results for conditional steps (объединенные echo для SC2129)
+          {
+            echo "UPDATE_CASK=$UPDATE_CASK"
+            echo "UPDATE_FORMULA=$UPDATE_FORMULA"
+            echo "UPDATE_SCOOP=$UPDATE_SCOOP"
+            echo "CURRENT_VERSION_CASK=$CURRENT_VERSION_CASK"
+            echo "CURRENT_VERSION_FORMULA=$CURRENT_VERSION_FORMULA"
+            echo "CURRENT_VERSION_SCOOP=$CURRENT_VERSION_SCOOP"
+          } >> "$GITHUB_OUTPUT"
 
       # Step 5: Update Homebrew Cask for macOS (if needed)
       - name: Update Homebrew Cask file
@@ -231,9 +235,9 @@ jobs:
             FILES_TO_ADD="$FILES_TO_ADD bucket/crocgui.json"
           fi
           
-          # Add files to git (use quotes to handle spaces correctly)
+          # Add files to git (исправлено для SC2086)
           if [[ -n "$FILES_TO_ADD" ]]; then
-            git add $FILES_TO_ADD
+            git add "$FILES_TO_ADD"
           fi
           
           # Check if there are actual changes to commit
