@@ -1,8 +1,8 @@
 class Crocgui < Formula
   desc "GUI for croc — secure file transfer tool"
   homepage "https://github.com/abakum/crocgui"
-  url "https://github.com/abakum/crocgui/releases/download/v1.11.31/crocgui.tar.xz"
-  sha256 "95bf3111512903185bd9d8216bc99bc100c43a9ae47a4ad2f21d53a23a22859c"
+  url "https://github.com/abakum/crocgui/releases/download/v1.11.33/crocgui.tar.xz"
+  sha256 "a25b4e873fd93466d7d7d964d530d962ccc213bd105855532561573ca9016f5e"
   license "ISC"
 
   livecheck do
