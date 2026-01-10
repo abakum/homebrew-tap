@@ -213,17 +213,17 @@ jobs:
             puts "Scoop Manifest updated to v#{ENV['NEW_VERSION']}"
           RUBY
 
-      # Step 8: Commit and push changes DIRECTLY TO MAIN
-      - name: Commit and push changes to main
+      # Step 8: Commit, tag and push changes DIRECTLY TO MAIN (clean tag, detailed commit)
+      - name: Commit, tag and push changes to main
         if: steps.check_versions.outputs.UPDATE_CASK == 'true' || steps.check_versions.outputs.UPDATE_FORMULA == 'true' || steps.check_versions.outputs.UPDATE_SCOOP == 'true'
         env:
-          COMMIT_MESSAGE_PREFIX: "Update crocgui"
+          TAG_NAME: "v${{ steps.extract_data.outputs.LATEST_VERSION }}"
         run: |
-          # Configure git identity
+          # Configure git identity for the action
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Add changed files
+          # Add changed files to staging
           FILES_ADDED=false
           if [[ "${{ steps.check_versions.outputs.UPDATE_CASK }}" == "true" ]]; then
             git add "Casks/crocgui.rb"
@@ -238,6 +238,7 @@ jobs:
             FILES_ADDED=true
           fi
           
+          # Exit if no files were updated
           if [[ "$FILES_ADDED" == "false" ]]; then
             echo "No files to update"
             exit 0
@@ -249,20 +250,20 @@ jobs:
             exit 0
           fi
           
-          # Build descriptive commit message
+          # Build descriptive commit message with version changes
           COMMIT_PARTS=()
           if [[ "${{ steps.check_versions.outputs.UPDATE_CASK }}" == "true" ]]; then
-            COMMIT_PARTS+=("cask: ${{ steps.check_versions.outputs.CURRENT_VERSION_CASK }} → ${{ steps.extract_data.outputs.LATEST_VERSION }}")
+            COMMIT_PARTS+=("cask: ${{ steps.check_versions.outputs.CURRENT_VERSION_CASK }}")
           fi
           if [[ "${{ steps.check_versions.outputs.UPDATE_FORMULA }}" == "true" ]]; then
-            COMMIT_PARTS+=("formula: ${{ steps.check_versions.outputs.CURRENT_VERSION_FORMULA }} → ${{ steps.extract_data.outputs.LATEST_VERSION }}")
+            COMMIT_PARTS+=("formula: ${{ steps.check_versions.outputs.CURRENT_VERSION_FORMULA }}")
           fi
           if [[ "${{ steps.check_versions.outputs.UPDATE_SCOOP }}" == "true" ]]; then
-            COMMIT_PARTS+=("scoop: ${{ steps.check_versions.outputs.CURRENT_VERSION_SCOOP }} → ${{ steps.extract_data.outputs.LATEST_VERSION }}")
+            COMMIT_PARTS+=("scoop: ${{ steps.check_versions.outputs.CURRENT_VERSION_SCOOP }}")
           fi
           
-          # Format commit message: "Update crocgui (cask: 1.11.31 → 1.11.32, formula: ...)"
-          COMMIT_MESSAGE="$COMMIT_MESSAGE_PREFIX"
+          # Format detailed commit message: "crocgui: Update to version 1.11.32 (cask: 1.11.31, formula: 1.11.31)"
+          COMMIT_MESSAGE="crocgui: Update to version ${{ steps.extract_data.outputs.LATEST_VERSION }}"
           if [[ ${#COMMIT_PARTS[@]} -gt 0 ]]; then
             COMMIT_MESSAGE="$COMMIT_MESSAGE (${COMMIT_PARTS[0]}"
             for i in "${!COMMIT_PARTS[@]}"; do
@@ -273,17 +274,27 @@ jobs:
             COMMIT_MESSAGE="$COMMIT_MESSAGE)"
           fi
           
+          # Clean tag message without package details: "crocgui: Update to version 1.11.32"
+          TAG_MESSAGE="crocgui: Update to version ${{ steps.extract_data.outputs.LATEST_VERSION }}"
+          
           echo "Commit message: $COMMIT_MESSAGE"
+          echo "Tag message: $TAG_MESSAGE"
+          echo "Tag name: $TAG_NAME"
           
-          # Commit the changes
+          # Create the commit with detailed message
           git commit -m "$COMMIT_MESSAGE"
+          COMMIT_HASH=$(git rev-parse HEAD)
           
-          # Push DIRECTLY TO MAIN (like your original workflow)
-          echo "Pushing changes directly to main branch..."
-          git push origin main
+          # Create annotated tag with clean message
+          git tag -a "$TAG_NAME" -m "$TAG_MESSAGE" "$COMMIT_HASH"
           
-          echo "Changes successfully pushed to main branch"
-          echo "Package files updated for all platforms:"
+          # Single push for both commit and tag (atomic ensures both succeed or neither)
+          echo "Pushing commit and tag to main branch..."
+          git push origin main --atomic
+          git push origin "$TAG_NAME"    # Additional push for redundancy
+          
+          echo "Changes successfully pushed to main branch with tag $TAG_NAME"
+          echo "Package files updated for:"
           if [[ "${{ steps.check_versions.outputs.UPDATE_CASK }}" == "true" ]]; then
             echo "   - macOS (Homebrew Cask)"
           fi
