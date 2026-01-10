@@ -13,14 +13,10 @@ class Crocgui < Formula
   depends_on :linux
 
   def install
-    system "tar", "-xf", cached_download
+    ENV["PREFIX"] = prefix.to_s
+    ENV["DESTDIR"] = ""
 
-    install_env = {
-      "PREFIX"  => prefix.to_s,
-      "DESTDIR" => "",
-    }
-
-    system install_env, "make", "-f", "Makefile", "install"
+    system "make", "install"
   end
 
   def post_install
