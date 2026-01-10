@@ -223,21 +223,24 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Add changed files based on what was updated
-          FILES_TO_ADD=""
+          # Add changed files
+          FILES_ADDED=false
           if [[ "${{ steps.check_versions.outputs.UPDATE_CASK }}" == "true" ]]; then
-            FILES_TO_ADD="$FILES_TO_ADD Casks/crocgui.rb"
+            git add "Casks/crocgui.rb"
+            FILES_ADDED=true
           fi
           if [[ "${{ steps.check_versions.outputs.UPDATE_FORMULA }}" == "true" ]]; then
-            FILES_TO_ADD="$FILES_TO_ADD Formula/crocgui.rb"
+            git add "Formula/crocgui.rb"
+            FILES_ADDED=true
           fi
           if [[ "${{ steps.check_versions.outputs.UPDATE_SCOOP }}" == "true" ]]; then
-            FILES_TO_ADD="$FILES_TO_ADD bucket/crocgui.json"
+            git add "bucket/crocgui.json"
+            FILES_ADDED=true
           fi
           
-          # Add files to git (исправлено для SC2086)
-          if [[ -n "$FILES_TO_ADD" ]]; then
-            git add "$FILES_TO_ADD"
+          if [[ "$FILES_ADDED" == "false" ]]; then
+            echo "No files to update"
+            exit 0
           fi
           
           # Check if there are actual changes to commit
