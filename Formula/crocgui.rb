@@ -26,23 +26,25 @@ class Crocgui < Formula
   end
 
   def caveats
-    line_to_add = "export XDG_DATA_DIRS=\"#{HOMEBREW_PREFIX}/share:$XDG_DATA_DIRS\""
     bashrc = Pathname.new(Dir.home)/".bashrc"
     
-    # Base message that always shows
+    safe_line = 'export XDG_DATA_DIRS="${XDG_DATA_DIRS:+$XDG_DATA_DIRS:}' + "#{HOMEBREW_PREFIX}/share\""
+    
+    command = %Q(grep -Fq "#{HOMEBREW_PREFIX}/share" ~/.bashrc || echo '#{safe_line}' >> ~/.bashrc)
+    
     msg = "You can launch the application from your menu or via terminal:\n  gtk-launch #{APP_ID}"
 
-    # Check if we need to add the environment setup instructions
-    if bashrc.exist? && bashrc.read.include?(line_to_add)
+    if bashrc.exist? && bashrc.read.include?("#{HOMEBREW_PREFIX}/share")
       msg
     else
       <<~EOS
-        The desktop shortcut was installed, but Homebrew's share directory is not in your XDG_DATA_DIRS.
-        To see the application in your system menu and use gtk-launch, please run:
+        The desktop shortcut was installed, but Homebrew's share directory might not be in your XDG_DATA_DIRS.
+        
+        To ensure the application appears in your system menu and can be launched via gtk-launch, run:
 
-        grep -qF '#{line_to_add}' ~/.bashrc || echo '#{line_to_add}' >> ~/.bashrc
+          #{command}
 
-        Then, refresh your shell environment:
+        Then refresh your shell environment:
           source ~/.bashrc
 
         #{msg}
