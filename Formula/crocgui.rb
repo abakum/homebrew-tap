@@ -27,11 +27,11 @@ class Crocgui < Formula
 
   def caveats
     bashrc = Pathname.new(Dir.home)/".bashrc"
-    
+
     safe_line = 'export XDG_DATA_DIRS="${XDG_DATA_DIRS:+$XDG_DATA_DIRS:}' + "#{HOMEBREW_PREFIX}/share\""
-    
+
     command = %Q(grep -Fq "#{HOMEBREW_PREFIX}/share" ~/.bashrc || echo '#{safe_line}' >> ~/.bashrc)
-    
+
     msg = "You can launch the application from your menu or via terminal:\n  gtk-launch #{APP_ID}"
 
     if bashrc.exist? && bashrc.read.include?("#{HOMEBREW_PREFIX}/share")
@@ -39,7 +39,7 @@ class Crocgui < Formula
     else
       <<~EOS
         The desktop shortcut was installed, but Homebrew's share directory might not be in your XDG_DATA_DIRS.
-        
+
         To ensure the application appears in your system menu and can be launched via gtk-launch, run:
 
           #{command}
