@@ -14,13 +14,11 @@
   ],
   "checkver": "github",
   "autoupdate": {
-    "url": "https://github.com/abakum/crocgui/releases/download/v$version/crocgui.exe",
-    "hash": {
-      "mode": "json",
-      "url": "https://api.github.com/repos/abakum/crocgui/releases/latest",
-      "jp": "$.assets[?(@.name=='crocgui.exe')].digest",
-      "find": "sha256:",
-      "replace": ""
+        "url": "https://github.com/abakum/crocgui/releases/download/v$version/crocgui.exe",
+        "hash": {
+            "url": "https://api.github.com",
+            "jp": "$.assets[?(@.name=='crocgui.exe')].digest",
+            "regex": "sha256:(?<hash>.*)"
+        }
     }
-  }
 }
