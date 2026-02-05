@@ -1,10 +1,10 @@
 {
-  "version": "1.11.40",
+  "version": "1.11.41",
   "description": "GUI for croc — secure file transfer tool",
   "homepage": "https://github.com/abakum/crocgui",
   "license": "ISC",
-  "url": "https://github.com/abakum/crocgui/releases/download/v1.11.40/crocgui.exe",
-  "hash": "5a2b8c430a0d87950f61ecc3c564c759dd01634d53b853a882aa16f38364d6fa",
+  "url": "https://github.com/abakum/crocgui/releases/download/v1.11.41/crocgui.exe",
+  "hash": "1182337e9cb25cd4d6f3d8f6734e2814e24c39888a1862dbefadcf00f30010d8",
   "bin": "crocgui.exe",
   "shortcuts": [
     [
@@ -14,11 +14,11 @@
   ],
   "checkver": "github",
   "autoupdate": {
-        "url": "https://github.com/abakum/crocgui/releases/download/v$version/crocgui.exe",
-        "hash": {
-            "url": "https://api.github.com",
-            "jp": "$.assets[?(@.name=='crocgui.exe')].digest",
-            "regex": "sha256:(?<hash>.*)"
-        }
+    "url": "https://github.com/abakum/crocgui/releases/download/v$version/crocgui.exe",
+    "hash": {
+      "url": "https://api.github.com",
+      "jp": "$.assets[?(@.name=='crocgui.exe')].digest",
+      "regex": "sha256:(?<hash>.*)"
     }
+  }
 }
