@@ -4,9 +4,9 @@
 cask "crocgui" do
   arch arm: "arm64", intel: "amd64"
 
-  version "1.11.47"
-  sha256 arm:          "5ce601128a2da7ac2d9e6ad6e7e08d239b1570818782a3931872b2d4b8730443",
-         intel:        "f5c58298cb469db0c195e56bb0c5bced8ff573b1de402f6273824584d0020178",
+  version "1.11.48"
+  sha256 arm:          "0fc8f8799fd93dc00a6d09d098a765ac3939a88340a061e1aa8c07c6ff9c358e",
+         intel:        "3ec2ebad4d529898279e2a3a4cbe29758aac78ba04994baf47888b8126f3ed06",
          arm64_linux:  "0",
          x86_64_linux: "0"
 
