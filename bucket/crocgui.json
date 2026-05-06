@@ -1,10 +1,10 @@
 {
-  "version": "1.11.52",
+  "version": "1.11.54",
   "description": "GUI for croc — secure file transfer tool",
   "homepage": "https://github.com/abakum/crocgui",
   "license": "ISC",
-  "url": "https://github.com/abakum/crocgui/releases/download/v1.11.52/crocgui.exe",
-  "hash": "b94fa487a81bdcab6a9f5bd865c26b820f135892577c34edaab54b4a77f1a536",
+  "url": "https://github.com/abakum/crocgui/releases/download/v1.11.54/crocgui.exe",
+  "hash": "757a25e9af22c2e83860ac98725ba827d9ba45dfad0515614e2f3ae2114db3a4",
   "bin": "crocgui.exe",
   "shortcuts": [
     [
