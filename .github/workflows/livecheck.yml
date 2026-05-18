@@ -25,10 +25,10 @@ jobs:
       - name: Check for cask updates
         id: check_cask_update
         run: |
-          echo "Checking for updates to crocgui cask..."
+          echo "Checking for updates to crocson cask..."
           
           # Get livecheck data for cask in JSON format
-          LIVECHECK_CASK_JSON="$(brew livecheck --cask --json abakum/tap/crocgui 2>/dev/null || echo '[]')"
+          LIVECHECK_CASK_JSON="$(brew livecheck --cask --json abakum/tap/crocson 2>/dev/null || echo '[]')"
           
           # Parse JSON to get version information for cask
           CURRENT_VERSION_CASK="$(echo "${LIVECHECK_CASK_JSON}" | jq -r '.[0].version.current // empty')"
@@ -58,10 +58,10 @@ jobs:
       - name: Check for formula updates
         id: check_formula_update
         run: |
-          echo "Checking for updates to crocgui formula..."
+          echo "Checking for updates to crocson formula..."
           
           # Get livecheck data for formula in JSON format
-          LIVECHECK_FORMULA_JSON="$(brew livecheck --formula --json abakum/tap/crocgui 2>/dev/null || echo '[]')"
+          LIVECHECK_FORMULA_JSON="$(brew livecheck --formula --json abakum/tap/crocson 2>/dev/null || echo '[]')"
           
           # Parse JSON to get version information for formula
           CURRENT_VERSION_FORMULA="$(echo "${LIVECHECK_FORMULA_JSON}" | jq -r '.[0].version.current // empty')"
@@ -91,7 +91,7 @@ jobs:
       - name: Update cask file
         if: steps.check_cask_update.outputs.UPDATE_CASK == 'true'
         env:
-          CASK_FILE: "Casks/crocgui.rb"
+          CASK_FILE: "Casks/crocson.rb"
           NEW_VERSION: "${{ steps.check_cask_update.outputs.NEW_VERSION_CASK }}"
           OLD_VERSION_CASK: "${{ steps.check_cask_update.outputs.OLD_VERSION_CASK }}"
         run: |
@@ -116,12 +116,12 @@ jobs:
           
           # Calculate SHA256 for ARM64 version
           echo "Calculating SHA256 for ARM64..."
-          ARM_SHA="$(get_sha256 "https://github.com/abakum/crocgui/releases/download/v${NEW_VERSION}/crocgui-arm64.dmg")"
+          ARM_SHA="$(get_sha256 "https://github.com/abakum/crocson/releases/download/v${NEW_VERSION}/crocson-arm64.dmg")"
           export ARM_SHA
           
           # Calculate SHA256 for Intel version
           echo "Calculating SHA256 for Intel..."
-          INTEL_SHA="$(get_sha256 "https://github.com/abakum/crocgui/releases/download/v${NEW_VERSION}/crocgui-amd64.dmg")"
+          INTEL_SHA="$(get_sha256 "https://github.com/abakum/crocson/releases/download/v${NEW_VERSION}/crocson-amd64.dmg")"
           export INTEL_SHA
           
           echo "SHA256 hashes calculated:"
@@ -153,7 +153,7 @@ jobs:
       - name: Update formula file
         if: steps.check_formula_update.outputs.UPDATE_FORMULA == 'true'
         env:
-          FORMULA_FILE: "Formula/crocgui.rb"
+          FORMULA_FILE: "Formula/crocson.rb"
           NEW_VERSION: "${{ steps.check_formula_update.outputs.NEW_VERSION_FORMULA }}"
           OLD_VERSION_FORMULA: "${{ steps.check_formula_update.outputs.OLD_VERSION_FORMULA }}"
         run: |
@@ -178,7 +178,7 @@ jobs:
           
           # Calculate SHA256 for tar.xz
           echo "Calculating SHA256 for tar.xz..."
-          TAR_SHA="$(get_sha256 "https://github.com/abakum/crocgui/releases/download/v${NEW_VERSION}/crocgui.tar.xz")"
+          TAR_SHA="$(get_sha256 "https://github.com/abakum/crocson/releases/download/v${NEW_VERSION}/crocson.tar.xz")"
           export TAR_SHA
           
           echo "SHA256 hash calculated: ${TAR_SHA}"
@@ -190,8 +190,8 @@ jobs:
             content = File.read(file)
             
             # Replace URL with new version
-            content.gsub!(%r{url "https://github\.com/abakum/crocgui/releases/download/v[\d\.]+/crocgui\.tar\.xz"},
-                         "url \"https://github.com/abakum/crocgui/releases/download/v#{ENV['NEW_VERSION']}/crocgui.tar.xz\"")
+            content.gsub!(%r{url "https://github\.com/abakum/crocson/releases/download/v[\d\.]+/crocson\.tar\.xz"},
+                         "url \"https://github.com/abakum/crocson/releases/download/v#{ENV['NEW_VERSION']}/crocson.tar.xz\"")
             
             # Replace SHA256 hash
             content.gsub!(/sha256 "[a-f0-9]+"/, "sha256 \"#{ENV['TAR_SHA']}\"")
@@ -204,8 +204,8 @@ jobs:
       - name: Commit and push changes
         if: steps.check_cask_update.outputs.UPDATE_CASK == 'true' || steps.check_formula_update.outputs.UPDATE_FORMULA == 'true'
         env:
-          BRANCH_NAME: "update/crocgui"
-          COMMIT_MESSAGE: "Update crocgui"
+          BRANCH_NAME: "update/crocson"
+          COMMIT_MESSAGE: "Update crocson"
         run: |
           # Configure git identity
           git config --local user.name "github-actions[bot]"
@@ -243,8 +243,8 @@ jobs:
           # Add changes
           CHANGES_MADE=false
           if [[ "${{ steps.check_cask_update.outputs.UPDATE_CASK }}" == "true" ]]; then
-            if git diff --name-only -- Casks/crocgui.rb | grep -q .; then
-              git add Casks/crocgui.rb
+            if git diff --name-only -- Casks/crocson.rb | grep -q .; then
+              git add Casks/crocson.rb
               CHANGES_MADE=true
             else
               echo "No actual changes in cask file"
@@ -252,8 +252,8 @@ jobs:
           fi
           
           if [[ "${{ steps.check_formula_update.outputs.UPDATE_FORMULA }}" == "true" ]]; then
-            if git diff --name-only -- Formula/crocgui.rb | grep -q .; then
-              git add Formula/crocgui.rb
+            if git diff --name-only -- Formula/crocson.rb | grep -q .; then
+              git add Formula/crocson.rb
               CHANGES_MADE=true
             else
               echo "No actual changes in formula file"
@@ -281,4 +281,4 @@ jobs:
           git merge "${BRANCH_NAME}" --no-ff -m "${FINAL_COMMIT_MESSAGE}"
           git push origin main
           
-          echo "Successfully updated crocgui"
+          echo "Successfully updated crocson"

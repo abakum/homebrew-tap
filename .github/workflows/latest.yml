@@ -23,7 +23,7 @@ jobs:
         id: get_release
         uses: octokit/request-action@v2.x
         with:
-          route: GET /repos/abakum/crocgui/releases/latest
+          route: GET /repos/abakum/crocson/releases/latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -43,10 +43,10 @@ jobs:
           echo "Latest version: $VERSION"
           
           # Extract SHA256 hashes from the .digest field (format: 'sha256:...')
-          TAR_SHA=$(jq -r '.assets[] | select(.name == "crocgui.tar.xz") | .digest // empty' release.json | cut -d: -f2)
-          EXE_SHA=$(jq -r '.assets[] | select(.name == "crocgui.exe") | .digest // empty' release.json | cut -d: -f2)
-          DMG_ARM_SHA=$(jq -r '.assets[] | select(.name == "crocgui-arm64.dmg") | .digest // empty' release.json | cut -d: -f2)
-          DMG_INTEL_SHA=$(jq -r '.assets[] | select(.name == "crocgui-amd64.dmg") | .digest // empty' release.json | cut -d: -f2)
+          TAR_SHA=$(jq -r '.assets[] | select(.name == "crocson.tar.xz") | .digest // empty' release.json | cut -d: -f2)
+          EXE_SHA=$(jq -r '.assets[] | select(.name == "crocson.exe") | .digest // empty' release.json | cut -d: -f2)
+          DMG_ARM_SHA=$(jq -r '.assets[] | select(.name == "crocson-arm64.dmg") | .digest // empty' release.json | cut -d: -f2)
+          DMG_INTEL_SHA=$(jq -r '.assets[] | select(.name == "crocson-amd64.dmg") | .digest // empty' release.json | cut -d: -f2)
           
           # Verify all required hashes were found
           if [[ -z "$TAR_SHA" ]] || [[ -z "$EXE_SHA" ]] || [[ -z "$DMG_ARM_SHA" ]] || [[ -z "$DMG_INTEL_SHA" ]]; then
@@ -75,9 +75,9 @@ jobs:
         id: check_versions
         run: |
           # Read current versions from files
-          CURRENT_VERSION_CASK=$(grep -oP 'version "\K[^"]+' Casks/crocgui.rb 2>/dev/null || echo "")
-          CURRENT_VERSION_FORMULA=$(grep -oP 'releases/download/v\K[^/]+' Formula/crocgui.rb 2>/dev/null || echo "")
-          CURRENT_VERSION_SCOOP=$(jq -r '.version // empty' bucket/crocgui.json 2>/dev/null || echo "")
+          CURRENT_VERSION_CASK=$(grep -oP 'version "\K[^"]+' Casks/crocson.rb 2>/dev/null || echo "")
+          CURRENT_VERSION_FORMULA=$(grep -oP 'releases/download/v\K[^/]+' Formula/crocson.rb 2>/dev/null || echo "")
+          CURRENT_VERSION_SCOOP=$(jq -r '.version // empty' bucket/crocson.json 2>/dev/null || echo "")
           
           echo "Current versions in package files:"
           echo "  Homebrew Cask (macOS): $CURRENT_VERSION_CASK"
@@ -129,7 +129,7 @@ jobs:
           echo "Updating Homebrew Cask to version $NEW_VERSION..."
           
           ruby <<-'RUBY'
-            file = "Casks/crocgui.rb"
+            file = "Casks/crocson.rb"
             content = File.read(file)
             
             # Update version number
@@ -154,12 +154,12 @@ jobs:
           echo "Updating Homebrew Formula to version $NEW_VERSION..."
           
           ruby <<-'RUBY'
-            file = "Formula/crocgui.rb"
+            file = "Formula/crocson.rb"
             content = File.read(file)
             
             # Update download URL with new version
-            old_url_pattern = %r{url "https://github\.com/abakum/crocgui/releases/download/v[\d\.]+/crocgui\.tar\.xz"}
-            new_url = "url \"https://github.com/abakum/crocgui/releases/download/v#{ENV['NEW_VERSION']}/crocgui.tar.xz\""
+            old_url_pattern = %r{url "https://github\.com/abakum/crocson/releases/download/v[\d\.]+/crocson\.tar\.xz"}
+            new_url = "url \"https://github.com/abakum/crocson/releases/download/v#{ENV['NEW_VERSION']}/crocson.tar.xz\""
             content.gsub!(old_url_pattern, new_url)
             
             # Update SHA256 hash
@@ -181,7 +181,7 @@ jobs:
           ruby <<-'RUBY'
             require 'json'
             
-            file = "bucket/crocgui.json"
+            file = "bucket/crocson.json"
             
             # Read existing manifest or create template if it doesn't exist
             if File.exist?(file)
@@ -190,22 +190,22 @@ jobs:
               data = {
                 "version" => ENV['NEW_VERSION'],
                 "description" => "GUI for croc — secure file transfer tool",
-                "homepage" => "https://github.com/abakum/crocgui",
+                "homepage" => "https://github.com/abakum/crocson",
                 "license" => "ISC",
                 "url" => "",
                 "hash" => "",
-                "bin" => "crocgui.exe",
-                "shortcuts" => [["crocgui.exe", "Croc GUI"]],
+                "bin" => "crocson.exe",
+                "shortcuts" => [["crocson.exe", "Crocson"]],
                 "checkver" => "github",
                 "autoupdate" => {
-                  "url" => "https://github.com/abakum/crocgui/releases/download/v$version/crocgui.exe"
+                  "url" => "https://github.com/abakum/crocson/releases/download/v$version/crocson.exe"
                 }
               }
             end
             
             # Update manifest fields
             data["version"] = ENV['NEW_VERSION']
-            data["url"] = "https://github.com/abakum/crocgui/releases/download/v#{ENV['NEW_VERSION']}/crocgui.exe"
+            data["url"] = "https://github.com/abakum/crocson/releases/download/v#{ENV['NEW_VERSION']}/crocson.exe"
             data["hash"] = ENV['EXE_SHA']
             
             # Write back with pretty formatting
@@ -226,15 +226,15 @@ jobs:
           # Add changed files to staging
           FILES_ADDED=false
           if [[ "${{ steps.check_versions.outputs.UPDATE_CASK }}" == "true" ]]; then
-            git add "Casks/crocgui.rb"
+            git add "Casks/crocson.rb"
             FILES_ADDED=true
           fi
           if [[ "${{ steps.check_versions.outputs.UPDATE_FORMULA }}" == "true" ]]; then
-            git add "Formula/crocgui.rb"
+            git add "Formula/crocson.rb"
             FILES_ADDED=true
           fi
           if [[ "${{ steps.check_versions.outputs.UPDATE_SCOOP }}" == "true" ]]; then
-            git add "bucket/crocgui.json"
+            git add "bucket/crocson.json"
             FILES_ADDED=true
           fi
           
@@ -262,8 +262,8 @@ jobs:
             COMMIT_PARTS+=("scoop: ${{ steps.check_versions.outputs.CURRENT_VERSION_SCOOP }}")
           fi
           
-          # Format detailed commit message: "crocgui: Update to version 1.11.32 (cask: 1.11.31, formula: 1.11.31)"
-          COMMIT_MESSAGE="crocgui: Update to version ${{ steps.extract_data.outputs.LATEST_VERSION }}"
+          # Format detailed commit message: "crocson: Update to version 1.11.32 (cask: 1.11.31, formula: 1.11.31)"
+          COMMIT_MESSAGE="crocson: Update to version ${{ steps.extract_data.outputs.LATEST_VERSION }}"
           if [[ ${#COMMIT_PARTS[@]} -gt 0 ]]; then
             COMMIT_MESSAGE="$COMMIT_MESSAGE (${COMMIT_PARTS[0]}"
             for i in "${!COMMIT_PARTS[@]}"; do
@@ -274,8 +274,8 @@ jobs:
             COMMIT_MESSAGE="$COMMIT_MESSAGE)"
           fi
           
-          # Clean tag message without package details: "crocgui: Update to version 1.11.32"
-          TAG_MESSAGE="crocgui: Update to version ${{ steps.extract_data.outputs.LATEST_VERSION }}"
+          # Clean tag message without package details: "crocson: Update to version 1.11.32"
+          TAG_MESSAGE="crocson: Update to version ${{ steps.extract_data.outputs.LATEST_VERSION }}"
           
           echo "Commit message: $COMMIT_MESSAGE"
           echo "Tag message: $TAG_MESSAGE"
