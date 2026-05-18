@@ -1,15 +1,15 @@
 {
-  "version": "1.11.57",
+  "version": "1.11.56",
   "description": "GUI for croc — secure file transfer tool",
   "homepage": "https://github.com/abakum/crocson",
   "license": "ISC",
-  "url": "https://github.com/abakum/crocson/releases/download/v1.11.57/crocson.exe",
+  "url": "https://github.com/abakum/crocson/releases/download/v1.11.56/crocson.exe",
   "hash": "fadccd7a22590dc2e5a57ccbdbdb03e580d3c205019ab13c10b6c7c2458d2705",
   "bin": "crocson.exe",
   "shortcuts": [
     [
       "crocson.exe",
-      "Crocson"
+      "crocson"
     ]
   ],
   "checkver": "github",
