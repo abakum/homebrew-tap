@@ -21,6 +21,12 @@ Or
 - `brew upgrade crocson`
 
 ## How do I install on Windows?
+
+### Via winget
+- `winget install abakum.crocson`
+- `winget upgrade abakum.crocson`
+
+### Via scoop
 - `scoop bucket add abakum https://github.com/abakum/homebrew-tap`
 - `scoop bucket list`
 - `scoop install crocson`

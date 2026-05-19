@@ -78,11 +78,13 @@ jobs:
           CURRENT_VERSION_CASK=$(grep -oP 'version "\K[^"]+' Casks/crocson.rb 2>/dev/null || echo "")
           CURRENT_VERSION_FORMULA=$(grep -oP 'releases/download/v\K[^/]+' Formula/crocson.rb 2>/dev/null || echo "")
           CURRENT_VERSION_SCOOP=$(jq -r '.version // empty' bucket/crocson.json 2>/dev/null || echo "")
+          CURRENT_VERSION_WINGET=$(grep -oP 'PackageVersion: \K[\d.]+' winget/abakum.crocson.yaml 2>/dev/null || echo "")
           
           echo "Current versions in package files:"
           echo "  Homebrew Cask (macOS): $CURRENT_VERSION_CASK"
           echo "  Homebrew Formula (Linux): $CURRENT_VERSION_FORMULA"
           echo "  Scoop Manifest (Windows): $CURRENT_VERSION_SCOOP"
+          echo "  Winget Manifest (Windows): $CURRENT_VERSION_WINGET"
           
           LATEST_VERSION="${{ steps.extract_data.outputs.LATEST_VERSION }}"
           
@@ -90,6 +92,7 @@ jobs:
           UPDATE_CASK=false
           UPDATE_FORMULA=false
           UPDATE_SCOOP=false
+          UPDATE_WINGET=false
           
           if [[ -n "$CURRENT_VERSION_CASK" ]] && [[ "$CURRENT_VERSION_CASK" != "$LATEST_VERSION" ]]; then
             UPDATE_CASK=true
@@ -103,19 +106,26 @@ jobs:
             UPDATE_SCOOP=true
           fi
           
+          if [[ -n "$CURRENT_VERSION_WINGET" ]] && [[ "$CURRENT_VERSION_WINGET" != "$LATEST_VERSION" ]]; then
+            UPDATE_WINGET=true
+          fi
+          
           echo "Updates needed:"
           echo "  Homebrew Cask: $UPDATE_CASK"
           echo "  Homebrew Formula: $UPDATE_FORMULA"
           echo "  Scoop Manifest: $UPDATE_SCOOP"
+          echo "  Winget Manifest: $UPDATE_WINGET"
           
           # Export results for conditional steps (объединенные echo для SC2129)
           {
             echo "UPDATE_CASK=$UPDATE_CASK"
             echo "UPDATE_FORMULA=$UPDATE_FORMULA"
             echo "UPDATE_SCOOP=$UPDATE_SCOOP"
+            echo "UPDATE_WINGET=$UPDATE_WINGET"
             echo "CURRENT_VERSION_CASK=$CURRENT_VERSION_CASK"
             echo "CURRENT_VERSION_FORMULA=$CURRENT_VERSION_FORMULA"
             echo "CURRENT_VERSION_SCOOP=$CURRENT_VERSION_SCOOP"
+            echo "CURRENT_VERSION_WINGET=$CURRENT_VERSION_WINGET"
           } >> "$GITHUB_OUTPUT"
 
       # Step 5: Update Homebrew Cask for macOS (if needed)
@@ -213,9 +223,49 @@ jobs:
             puts "Scoop Manifest updated to v#{ENV['NEW_VERSION']}"
           RUBY
 
-      # Step 8: Commit, tag and push changes DIRECTLY TO MAIN (clean tag, detailed commit)
+      # Step 8: Update Winget Manifests for Windows (if needed)
+      - name: Update Winget Manifests
+        if: steps.check_versions.outputs.UPDATE_WINGET == 'true'
+        env:
+          NEW_VERSION: "${{ steps.extract_data.outputs.LATEST_VERSION }}"
+          EXE_SHA: "${{ steps.extract_data.outputs.EXE_SHA }}"
+        run: |
+          echo "Updating Winget Manifests to version $NEW_VERSION..."
+          
+          ruby <<-'RUBY'
+            new_version = ENV['NEW_VERSION']
+            exe_sha = ENV['EXE_SHA']
+            
+            # Update version manifest
+            file = "winget/abakum.crocson.yaml"
+            content = File.read(file)
+            content.gsub!(/PackageVersion: [\d.]+/, "PackageVersion: #{new_version}")
+            File.write(file, content)
+            puts "Winget version manifest updated to v#{new_version}"
+            
+            # Update installer manifest
+            file = "winget/abakum.crocson.installer.yaml"
+            content = File.read(file)
+            content.gsub!(/PackageVersion: [\d.]+/, "PackageVersion: #{new_version}")
+            content.gsub!(%r{InstallerUrl: https://github\.com/abakum/crocson/releases/download/v[\d.]+/crocson\.exe},
+                          "InstallerUrl: https://github.com/abakum/crocson/releases/download/v#{new_version}/crocson.exe")
+            content.gsub!(/InstallerSha256: [a-f0-9]+/, "InstallerSha256: #{exe_sha}")
+            File.write(file, content)
+            puts "Winget installer manifest updated to v#{new_version}"
+            
+            # Update locale manifest
+            file = "winget/abakum.crocson.locale.en-US.yaml"
+            content = File.read(file)
+            content.gsub!(/PackageVersion: [\d.]+/, "PackageVersion: #{new_version}")
+            content.gsub!(%r{ReleaseNotesUrl: https://github\.com/abakum/crocson/releases/tag/v[\d.]+},
+                          "ReleaseNotesUrl: https://github.com/abakum/crocson/releases/tag/v#{new_version}")
+            File.write(file, content)
+            puts "Winget locale manifest updated to v#{new_version}"
+          RUBY
+
+      # Step 9: Commit, tag and push changes DIRECTLY TO MAIN (clean tag, detailed commit)
       - name: Commit, tag and push changes to main
-        if: steps.check_versions.outputs.UPDATE_CASK == 'true' || steps.check_versions.outputs.UPDATE_FORMULA == 'true' || steps.check_versions.outputs.UPDATE_SCOOP == 'true'
+        if: steps.check_versions.outputs.UPDATE_CASK == 'true' || steps.check_versions.outputs.UPDATE_FORMULA == 'true' || steps.check_versions.outputs.UPDATE_SCOOP == 'true' || steps.check_versions.outputs.UPDATE_WINGET == 'true'
         env:
           TAG_NAME: "v${{ steps.extract_data.outputs.LATEST_VERSION }}"
         run: |
@@ -235,6 +285,10 @@ jobs:
           fi
           if [[ "${{ steps.check_versions.outputs.UPDATE_SCOOP }}" == "true" ]]; then
             git add "bucket/crocson.json"
+            FILES_ADDED=true
+          fi
+          if [[ "${{ steps.check_versions.outputs.UPDATE_WINGET }}" == "true" ]]; then
+            git add "winget/"
             FILES_ADDED=true
           fi
           
@@ -260,6 +314,9 @@ jobs:
           fi
           if [[ "${{ steps.check_versions.outputs.UPDATE_SCOOP }}" == "true" ]]; then
             COMMIT_PARTS+=("scoop: ${{ steps.check_versions.outputs.CURRENT_VERSION_SCOOP }}")
+          fi
+          if [[ "${{ steps.check_versions.outputs.UPDATE_WINGET }}" == "true" ]]; then
+            COMMIT_PARTS+=("winget: ${{ steps.check_versions.outputs.CURRENT_VERSION_WINGET }}")
           fi
           
           # Format detailed commit message: "crocson: Update to version 1.11.32 (cask: 1.11.31, formula: 1.11.31)"
@@ -299,8 +356,23 @@ jobs:
             echo "   - macOS (Homebrew Cask)"
           fi
           if [[ "${{ steps.check_versions.outputs.UPDATE_FORMULA }}" == "true" ]]; then
-            echo "   - Linux (Homebrew Formula)" 
+            echo "   - Linux (Homebrew Formula)"
           fi
           if [[ "${{ steps.check_versions.outputs.UPDATE_SCOOP }}" == "true" ]]; then
             echo "   - Windows (Scoop Manifest)"
           fi
+          if [[ "${{ steps.check_versions.outputs.UPDATE_WINGET }}" == "true" ]]; then
+            echo "   - Windows (Winget Manifest)"
+          fi
+
+  publish:
+    needs: update-all
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Publish to Winget
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: abakum.crocson
+          installers-regex: '.*crocson.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}
