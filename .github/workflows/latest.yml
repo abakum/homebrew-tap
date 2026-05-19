@@ -2,6 +2,12 @@ name: Update via GitHub API
 
 on:
   workflow_dispatch:
+    inputs:
+      force_publish:
+        description: 'Force publish to winget-pkgs regardless of version change'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -9,6 +15,10 @@ permissions:
 jobs:
   update-all:
     runs-on: ubuntu-latest
+    outputs:
+      latest_version: ${{ steps.extract_data.outputs.LATEST_VERSION }}
+      exe_sha: ${{ steps.extract_data.outputs.EXE_SHA }}
+      update_winget: ${{ steps.check_versions.outputs.UPDATE_WINGET }}
     
     steps:
       # Step 1: Checkout repository
@@ -371,6 +381,7 @@ jobs:
 
   publish:
     needs: update-all
+    if: needs.update-all.outputs.update_winget == 'true' || github.event.inputs.force_publish == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -379,18 +390,15 @@ jobs:
     steps:
       - name: Checkout this repository
         uses: actions/checkout@v4
-
-      - name: Get version from winget manifest
-        id: winget_version
-        run: |
-          VERSION=$(grep -oP 'PackageVersion: \K[\d.]+' winget/abakum.crocson.yaml)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Fork winget-pkgs and create PR
         env:
           GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
           PKG_ID: abakum.crocson
-          VERSION: ${{ steps.winget_version.outputs.version }}
+          VERSION: ${{ needs.update-all.outputs.latest_version }}
         run: |
           # Configure git
           git config --global user.name "github-actions[bot]"
@@ -407,6 +415,13 @@ jobs:
           cp winget/abakum.crocson.yaml "$MANIFEST_DIR/"
           cp winget/abakum.crocson.installer.yaml "$MANIFEST_DIR/"
           cp winget/abakum.crocson.locale.en-US.yaml "$MANIFEST_DIR/"
+
+          # Ensure PackageVersion matches the actual version from release
+          sed -i "s/PackageVersion: .*/PackageVersion: $VERSION/" "$MANIFEST_DIR/abakum.crocson.yaml"
+          sed -i "s/PackageVersion: .*/PackageVersion: $VERSION/" "$MANIFEST_DIR/abakum.crocson.installer.yaml"
+          sed -i "s/PackageVersion: .*/PackageVersion: $VERSION/" "$MANIFEST_DIR/abakum.crocson.locale.en-US.yaml"
+          sed -i "s|InstallerUrl: https://github.com/abakum/crocson/releases/download/v.*/crocson.exe|InstallerUrl: https://github.com/abakum/crocson/releases/download/v$VERSION/crocson.exe|" "$MANIFEST_DIR/abakum.crocson.installer.yaml"
+          sed -i "s|ReleaseNotesUrl: https://github.com/abakum/crocson/releases/tag/v.*|ReleaseNotesUrl: https://github.com/abakum/crocson/releases/tag/v$VERSION|" "$MANIFEST_DIR/abakum.crocson.locale.en-US.yaml"
 
           cd winget-pkgs
 
