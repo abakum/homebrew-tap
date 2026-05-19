@@ -372,11 +372,61 @@ jobs:
   publish:
     needs: update-all
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
-      - name: Publish to Winget
-        uses: vedantmgoyal9/winget-releaser@v2
-        with:
-          identifier: abakum.crocson
-          installers-regex: '.*crocson.exe$'
-          token: ${{ secrets.WINGET_TOKEN }}
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+
+      - name: Get version from winget manifest
+        id: winget_version
+        run: |
+          VERSION=$(grep -oP 'PackageVersion: \K[\d.]+' winget/abakum.crocson.yaml)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Fork winget-pkgs and create PR
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          PKG_ID: abakum.crocson
+          VERSION: ${{ steps.winget_version.outputs.version }}
+        run: |
+          # Configure git
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Clone winget-pkgs (shallow)
+          git clone --depth=1 https://github.com/microsoft/winget-pkgs.git winget-pkgs
+
+          # Manifest directory structure: manifests/a/abakum/crocson/<version>/
+          MANIFEST_DIR="winget-pkgs/manifests/a/abakum/crocson/$VERSION"
+          mkdir -p "$MANIFEST_DIR"
+
+          # Copy manifest files
+          cp winget/abakum.crocson.yaml "$MANIFEST_DIR/"
+          cp winget/abakum.crocson.installer.yaml "$MANIFEST_DIR/"
+          cp winget/abakum.crocson.locale.en-US.yaml "$MANIFEST_DIR/"
+
+          cd winget-pkgs
+
+          # Create a branch
+          BRANCH_NAME="abakum.crocson-$VERSION"
+          git checkout -b "$BRANCH_NAME"
+          git add .
+          git commit -m "New version: $PKG_ID version $VERSION"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/$(gh api user --jq .login)/winget-pkgs.git" "$BRANCH_NAME" 2>&1 || {
+            # Fork if push fails (repo doesn't exist in fork)
+            gh repo fork microsoft/winget-pkgs --clone=false
+            git push "https://x-access-token:${GH_TOKEN}@github.com/$(gh api user --jq .login)/winget-pkgs.git" "$BRANCH_NAME"
+          }
+
+          # Create PR
+          gh pr create \
+            --repo microsoft/winget-pkgs \
+            --head "$(gh api user --jq .login):$BRANCH_NAME" \
+            --base master \
+            --title "New version: $PKG_ID version $VERSION" \
+            --body "Automated PR to add/update $PKG_ID version $VERSION.
+
+          Manifests are generated from https://github.com/abakum/crocson" || echo "PR may already exist or needs manual creation"
