@@ -1,4 +1,4 @@
-name: Update Casks, Formula and bucket via brew livecheck
+name: Update via brew livecheck
 
 on:
   workflow_dispatch:  # Manual trigger only

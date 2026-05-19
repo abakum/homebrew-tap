@@ -1,4 +1,4 @@
-name: Update Casks, Formula and bucket via GitHub API
+name: Update via GitHub API
 
 on:
   workflow_dispatch:
@@ -342,13 +342,17 @@ jobs:
           git commit -m "$COMMIT_MESSAGE"
           COMMIT_HASH=$(git rev-parse HEAD)
           
-          # Create annotated tag with clean message
-          git tag -a "$TAG_NAME" -m "$TAG_MESSAGE" "$COMMIT_HASH"
+          # Create annotated tag (skip if already exists for this version)
+          if git tag -l "$TAG_NAME" | grep -q .; then
+            echo "Tag $TAG_NAME already exists, skipping tag creation"
+          else
+            git tag -a "$TAG_NAME" -m "$TAG_MESSAGE" "$COMMIT_HASH"
+          fi
           
-          # Single push for both commit and tag (atomic ensures both succeed or neither)
+          # Push commit and tag
           echo "Pushing commit and tag to main branch..."
-          git push origin main --atomic
-          git push origin "$TAG_NAME"    # Additional push for redundancy
+          git push origin main
+          git push origin "$TAG_NAME" 2>/dev/null || echo "Tag $TAG_NAME push skipped (may already exist remotely)"
           
           echo "Changes successfully pushed to main branch with tag $TAG_NAME"
           echo "Package files updated for:"
