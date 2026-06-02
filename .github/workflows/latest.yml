@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       force_publish:
-        description: 'Force publish to winget-pkgs regardless of version change'
+        description: 'Force update all recipes and publish to winget-pkgs regardless of version change'
         required: false
         default: false
         type: boolean
@@ -104,6 +104,13 @@ jobs:
           fi
           
           if [[ -n "$CURRENT_VERSION_WINGET" ]] && [[ "$CURRENT_VERSION_WINGET" != "$LATEST_VERSION" ]]; then
+            UPDATE_WINGET=true
+          fi
+          
+          if [[ "${{ github.event.inputs.force_publish }}" == "true" ]]; then
+            UPDATE_CASK=true
+            UPDATE_FORMULA=true
+            UPDATE_SCOOP=true
             UPDATE_WINGET=true
           fi
           
