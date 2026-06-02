@@ -28,50 +28,37 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      # Step 2: Get latest release info via GitHub API (using Octokit)
-      - name: Get latest release info via GitHub API
-        id: get_release
-        uses: octokit/request-action@v2.x
-        with:
-          route: GET /repos/abakum/crocson/releases/latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Step 3: Extract version and SHA256 hashes from API response
+      # Step 2: Extract version and SHA256 hashes via GitHub API
       - name: Extract version and hashes
         id: extract_data
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Save API response to a temporary file
-          echo '${{ steps.get_release.outputs.data }}' > release.json
-          
-          # Install jq for JSON parsing
-          sudo apt-get update
-          sudo apt-get install -y jq
-          
+          gh api repos/abakum/crocson/releases/latest > release.json
+
           # Extract version (remove 'v' prefix)
           VERSION=$(jq -r '.tag_name | ltrimstr("v")' release.json)
           echo "Latest version: $VERSION"
-          
+
           # Extract SHA256 hashes from the .digest field (format: 'sha256:...')
           TAR_SHA=$(jq -r '.assets[] | select(.name == "crocson.tar.xz") | .digest // empty' release.json | cut -d: -f2)
           EXE_SHA=$(jq -r '.assets[] | select(.name == "crocson.exe") | .digest // empty' release.json | cut -d: -f2)
           DMG_ARM_SHA=$(jq -r '.assets[] | select(.name == "crocson-arm64.dmg") | .digest // empty' release.json | cut -d: -f2)
           DMG_INTEL_SHA=$(jq -r '.assets[] | select(.name == "crocson-amd64.dmg") | .digest // empty' release.json | cut -d: -f2)
-          
+
           # Verify all required hashes were found
           if [[ -z "$TAR_SHA" ]] || [[ -z "$EXE_SHA" ]] || [[ -z "$DMG_ARM_SHA" ]] || [[ -z "$DMG_INTEL_SHA" ]]; then
             echo "Error: Some SHA256 hashes not found in release assets"
             echo "Make sure all required files are present in the GitHub release"
             exit 1
           fi
-          
+
           echo "SHA256 hashes found:"
           echo "  tar.xz (Linux): $TAR_SHA"
           echo "  exe (Windows): $EXE_SHA"
           echo "  dmg-arm64 (macOS Apple Silicon): $DMG_ARM_SHA"
           echo "  dmg-amd64 (macOS Intel): $DMG_INTEL_SHA"
-          
-          # Save data for subsequent steps (объединенные echo для SC2129)
+
           {
             echo "LATEST_VERSION=$VERSION"
             echo "TAR_SHA=$TAR_SHA"
@@ -80,7 +67,7 @@ jobs:
             echo "DMG_INTEL_SHA=$DMG_INTEL_SHA"
           } >> "$GITHUB_OUTPUT"
 
-      # Step 4: Check current versions in our package files
+      # Step 3: Check current versions in our package files
       - name: Check current versions in package files
         id: check_versions
         run: |
@@ -138,7 +125,7 @@ jobs:
             echo "CURRENT_VERSION_WINGET=$CURRENT_VERSION_WINGET"
           } >> "$GITHUB_OUTPUT"
 
-      # Step 5: Update Homebrew Cask for macOS (if needed)
+      # Step 4: Update Homebrew Cask for macOS (if needed)
       - name: Update Homebrew Cask file
         if: steps.check_versions.outputs.UPDATE_CASK == 'true'
         env:
@@ -164,7 +151,7 @@ jobs:
             puts "✅ Homebrew Cask file updated to v#{ENV['NEW_VERSION']}"
           RUBY
 
-      # Step 6: Update Homebrew Formula for Linux (if needed)
+      # Step 5: Update Homebrew Formula for Linux (if needed)
       - name: Update Homebrew Formula file
         if: steps.check_versions.outputs.UPDATE_FORMULA == 'true'
         env:
@@ -189,7 +176,7 @@ jobs:
             puts "Homebrew Formula file updated to v#{ENV['NEW_VERSION']}"
           RUBY
 
-      # Step 7: Update Scoop Manifest for Windows (if needed)
+      # Step 6: Update Scoop Manifest for Windows (if needed)
       - name: Update Scoop Manifest file
         if: steps.check_versions.outputs.UPDATE_SCOOP == 'true'
         env:
@@ -233,7 +220,7 @@ jobs:
             puts "Scoop Manifest updated to v#{ENV['NEW_VERSION']}"
           RUBY
 
-      # Step 8: Update Winget Manifests for Windows (if needed)
+      # Step 7: Update Winget Manifests for Windows (if needed)
       - name: Update Winget Manifests
         if: steps.check_versions.outputs.UPDATE_WINGET == 'true'
         env:
@@ -273,7 +260,7 @@ jobs:
             puts "Winget locale manifest updated to v#{new_version}"
           RUBY
 
-      # Step 9: Commit, tag and push changes DIRECTLY TO MAIN (clean tag, detailed commit)
+      # Step 8: Commit, tag and push changes DIRECTLY TO MAIN (clean tag, detailed commit)
       - name: Commit, tag and push changes to main
         if: steps.check_versions.outputs.UPDATE_CASK == 'true' || steps.check_versions.outputs.UPDATE_FORMULA == 'true' || steps.check_versions.outputs.UPDATE_SCOOP == 'true' || steps.check_versions.outputs.UPDATE_WINGET == 'true'
         env:
