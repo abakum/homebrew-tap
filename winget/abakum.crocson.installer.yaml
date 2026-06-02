@@ -6,7 +6,7 @@ Installers:
   - Architecture: x64
     InstallerType: portable
     InstallerUrl: https://github.com/abakum/crocson/releases/download/v1.11.61/crocson.exe
-    InstallerSha256: 3e7b06a82acf8e0296ea8effb9d96f4869339f2254aa06eb9fa6309e0dd905bb
+    InstallerSha256: ff0b49c90c921d938113508d5563b4ecc9a233c436068e5f2c4bfb4813d6aabe
     Commands:
       - crocson
 ManifestType: installer
