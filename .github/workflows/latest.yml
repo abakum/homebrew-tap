@@ -424,10 +424,10 @@ jobs:
           git checkout -b "$BRANCH_NAME"
           git add .
           git commit -m "New version: $PKG_ID version $VERSION"
-          git push "https://x-access-token:${GH_TOKEN}@github.com/$(gh api user --jq .login)/winget-pkgs.git" "$BRANCH_NAME" 2>&1 || {
-            # Fork if push fails (repo doesn't exist in fork)
-            gh repo fork microsoft/winget-pkgs --clone=false
-            git push "https://x-access-token:${GH_TOKEN}@github.com/$(gh api user --jq .login)/winget-pkgs.git" "$BRANCH_NAME"
+          FORK_URL="https://x-access-token:${GH_TOKEN}@github.com/$(gh api user --jq .login)/winget-pkgs.git"
+          git push "$FORK_URL" "$BRANCH_NAME" 2>&1 || {
+            gh repo fork microsoft/winget-pkgs --clone=false 2>/dev/null || true
+            git push --force "$FORK_URL" "$BRANCH_NAME"
           }
 
           # Create PR
