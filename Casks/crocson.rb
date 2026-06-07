@@ -4,9 +4,9 @@
 cask "crocson" do
   arch arm: "arm64", intel: "amd64"
 
-  version "1.11.61"
-  sha256 arm:          "c8977293d9f5925ce1cb158bfcbb709f4f809603fda4146be7e6ee14ee5f066f",
-         intel:        "fc62cf478276b3ac75d275683bc0e46565645ebb86c843f1df312d3b187536ef",
+  version "1.11.62"
+  sha256 arm:          "179c3332c08a977807ac744b9e3fa7e79fa50b827ce2063d2398d39a3f327895",
+         intel:        "c8f361b7af1cfe942593bfa1b10187f0c880b49a95c151c8ce3c12671c26e386",
          arm64_linux:  "0",
          x86_64_linux: "0"
 
