@@ -16,7 +16,7 @@
   "autoupdate": {
     "url": "https://github.com/abakum/crocson/releases/download/v$version/crocson.exe",
     "hash": {
-      "url": "https://api.github.com",
+      "url": "https://api.github.com/repos/abakum/crocson/releases/tags/v$version",
       "jp": "$.assets[?(@.name=='crocson.exe')].digest",
       "regex": "sha256:(?<hash>.*)"
     }
