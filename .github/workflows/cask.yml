@@ -1,0 +1,200 @@
+name: Publish to Homebrew Cask
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_submit:
+        description: 'Force submit: close existing PR and create a new one'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  MANIFEST: crocson
+
+jobs:
+  publish-to-homebrew-cask:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+
+      - name: Extract version and hashes from Cask
+        id: manifest
+        run: |
+          VERSION=$(grep -oP 'version "\K[^"]+' Casks/crocson.rb)
+          if [[ -z "$VERSION" ]]; then
+            echo "Error: Could not extract version from Casks/crocson.rb"
+            exit 1
+          fi
+
+          ARM_SHA=$(grep -oP 'arm:\s+"\K[a-f0-9]+' Casks/crocson.rb)
+          INTEL_SHA=$(grep -oP 'intel:\s+"\K[a-f0-9]+' Casks/crocson.rb)
+
+          if [[ -z "$ARM_SHA" ]] || [[ -z "$INTEL_SHA" ]]; then
+            echo "Error: Could not extract SHA256 hashes from Casks/crocson.rb"
+            exit 1
+          fi
+
+          {
+            echo "version=$VERSION"
+            echo "arm_sha=$ARM_SHA"
+            echo "intel_sha=$INTEL_SHA"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Cask version: $VERSION"
+          echo "ARM SHA: $ARM_SHA"
+          echo "Intel SHA: $INTEL_SHA"
+
+      - name: Check if cask already exists in Homebrew/homebrew-cask
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.CASK_TOKEN }}
+        run: |
+          if gh api "repos/Homebrew/homebrew-cask/contents/Casks/c/${{ env.MANIFEST }}.rb" \
+               --jq '.sha' 2>/dev/null; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Cask already exists in homebrew-cask — this will be an update"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Cask does not exist in homebrew-cask — this is a new addition"
+          fi
+
+      - name: Fork Homebrew/homebrew-cask
+        env:
+          GH_TOKEN: ${{ secrets.CASK_TOKEN }}
+        run: |
+          gh repo fork Homebrew/homebrew-cask --clone=false 2>/dev/null || true
+
+      - name: Clone fork and prepare cask
+        env:
+          GH_TOKEN: ${{ secrets.CASK_TOKEN }}
+          VERSION: ${{ steps.manifest.outputs.version }}
+          ARM_SHA: ${{ steps.manifest.outputs.arm_sha }}
+          INTEL_SHA: ${{ steps.manifest.outputs.intel_sha }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          GH_USER=$(gh api user --jq .login)
+          FORK_REPO="${GH_USER}/homebrew-cask"
+          echo "fork_repo=$FORK_REPO" >> "$GITHUB_ENV"
+
+          git clone --depth=1 "https://x-access-token:${GH_TOKEN}@github.com/${FORK_REPO}.git" homebrew-cask
+          cd homebrew-cask
+
+          BRANCH_NAME="${{ env.MANIFEST }}-${VERSION}"
+          git checkout -b "$BRANCH_NAME"
+
+          mkdir -p Casks/c
+
+          cat > "Casks/c/${{ env.MANIFEST }}.rb" << CASKFILE
+          cask "${{ env.MANIFEST }}" do
+            arch arm: "arm64", intel: "amd64"
+
+            version "${VERSION}"
+            sha256 arm:   "${ARM_SHA}",
+                   intel: "${INTEL_SHA}"
+
+            url "https://github.com/abakum/crocson/releases/download/v#{version}/${{ env.MANIFEST }}-#{arch}.dmg"
+            name "${{ env.MANIFEST }}"
+            desc "GUI for croc — secure file transfer tool"
+            homepage "https://github.com/abakum/crocson"
+
+            livecheck do
+              url :url
+              strategy :github_latest
+            end
+
+            app "${{ env.MANIFEST }}.app"
+
+            postflight do
+              system_command "/usr/bin/xattr",
+                             args: ["-r", "-d", "com.apple.quarantine", staged_path/"${{ env.MANIFEST }}.app"]
+            end
+
+            zap trash: "~/Library/Preferences/fyne/com.github.abakum.crocson/preferences.json"
+          end
+          CASKFILE
+
+          git add "Casks/c/${{ env.MANIFEST }}.rb"
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit (cask is already up to date)"
+            echo "skip_pr=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          IS_NEW="${{ steps.check.outputs.exists }}"
+          if [[ "$IS_NEW" == "false" ]]; then
+            COMMIT_MSG="${{ env.MANIFEST }} ${VERSION} (new cask)"
+          else
+            COMMIT_MSG="${{ env.MANIFEST }} ${VERSION}"
+          fi
+
+          git commit -m "$COMMIT_MSG"
+          git push origin "$BRANCH_NAME" 2>&1 || git push --force origin "$BRANCH_NAME"
+
+          echo "skip_pr=false" >> "$GITHUB_ENV"
+
+      - name: Create Pull Request
+        if: env.skip_pr != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.CASK_TOKEN }}
+          VERSION: ${{ steps.manifest.outputs.version }}
+        run: |
+          IS_NEW="${{ steps.check.outputs.exists }}"
+          BRANCH_NAME="${{ env.MANIFEST }}-${VERSION}"
+
+          if [[ "$IS_NEW" == "false" ]]; then
+            PR_TITLE="${{ env.MANIFEST }} ${VERSION} (new cask)"
+            PR_BODY=$(cat <<EOF
+          ## New Cask
+
+          **Name:** ${{ env.MANIFEST }}
+          **Version:** ${VERSION}
+          **Description:** GUI for croc — secure file transfer tool
+          **Homepage:** https://github.com/abakum/crocson
+          **License:** ISC
+
+          Cask source: https://github.com/abakum/crocson
+          EOF
+          )
+          else
+            PR_TITLE="${{ env.MANIFEST }} ${VERSION}"
+            PR_BODY="Automated update for ${{ env.MANIFEST }} to version ${VERSION}.
+
+          Cask source: https://github.com/abakum/crocson"
+          fi
+
+          if [[ "${{ github.event.inputs.force_submit }}" == "true" ]]; then
+            gh pr list --repo Homebrew/homebrew-cask \
+              --head "${{ env.fork_repo }}:${BRANCH_NAME}" \
+              --state open --json number --jq '.[].number' \
+              | while read -r pr_num; do
+                echo "Closing existing PR #$pr_num"
+                gh pr close "$pr_num" --repo Homebrew/homebrew-cask --delete-branch
+              done
+          fi
+
+          EXISTING_PR=$(gh pr list --repo Homebrew/homebrew-cask \
+            --head "${{ env.fork_repo }}:${BRANCH_NAME}" \
+            --state open --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [[ -n "$EXISTING_PR" ]]; then
+            echo "Open PR #$EXISTING_PR already exists — skipping creation"
+            exit 0
+          fi
+
+          gh pr create \
+            --repo Homebrew/homebrew-cask \
+            --head "${{ env.fork_repo }}:${BRANCH_NAME}" \
+            --base master \
+            --title "$PR_TITLE" \
+            --body "$PR_BODY" \
+            || echo "PR creation failed or already exists"
