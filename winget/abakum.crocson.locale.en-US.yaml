@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
 
 PackageIdentifier: abakum.crocson
-PackageVersion: 1.11.62
+PackageVersion: 1.11.64
 PackageLocale: en-US
 Publisher: abakum
 PackageName: crocson
@@ -15,6 +15,6 @@ Tags:
   - file-transfer
   - gui
   - portable
-ReleaseNotesUrl: https://github.com/abakum/crocson/releases/tag/v1.11.62
+ReleaseNotesUrl: https://github.com/abakum/crocson/releases/tag/v1.11.64
 ManifestType: defaultLocale
 ManifestVersion: 1.12.0
