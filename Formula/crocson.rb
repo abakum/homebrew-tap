@@ -1,8 +1,8 @@
 class Crocson < Formula
   desc "GUI for croc — secure file transfer tool"
   homepage "https://github.com/abakum/crocson"
-  url "https://github.com/abakum/crocson/releases/download/v1.11.65/crocson.tar.xz"
-  sha256 "0125493d338f3d15c421dbb8e0a8f45f25181005e3e1aa1157b097f1466f9035"
+  url "https://github.com/abakum/crocson/releases/download/v1.11.67/crocson.tar.xz"
+  sha256 "58b1f21f2bedfb1281e5cc53a714954d48000605dee554b9f8e4dabf08394151"
   license "ISC"
 
   APP_ID = "com.github.abakum.crocson".freeze
