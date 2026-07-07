@@ -1,12 +1,12 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
 
 PackageIdentifier: abakum.crocson
-PackageVersion: 1.11.67
+PackageVersion: 1.11.73
 Installers:
   - Architecture: x64
     InstallerType: portable
-    InstallerUrl: https://github.com/abakum/crocson/releases/download/v1.11.67/crocson.exe
-    InstallerSha256: 516b07817c2f61aebdede34c506871326bb2a7e288fb020a0e387eef81a5ceaa
+    InstallerUrl: https://github.com/abakum/crocson/releases/download/v1.11.73/crocson.exe
+    InstallerSha256: 031829b1dd434c83c8ce543f82776d50e1b44a5dcaa6c858b7eb0e2a892f357e
     Commands:
       - crocson
 ManifestType: installer
